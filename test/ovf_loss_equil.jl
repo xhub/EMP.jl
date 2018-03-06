@@ -32,6 +32,7 @@ all_params = Dict(
 )
 
 penalty_names = keys(all_params)
+ovf_formulations = ["equilibrium", "dual"]
 
 @testset "ovf_loss_equil" begin
 

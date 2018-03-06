@@ -426,6 +426,7 @@ function solveEMP(emp::EMP.Model)
         jamsd_model.solve_result_num = 999
     end
 
+    JAMSDWriter.emp_delete(jamsd_emp)
 end
 
 ###################################################################################################

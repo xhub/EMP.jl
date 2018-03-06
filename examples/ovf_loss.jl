@@ -3,12 +3,13 @@
 
 if !isdefined(:versions); versions = [1] end
 if !isdefined(:penalty_names); penalty_names = ["huber"] end
+if !isdefined(:ovf_formulations); ovf_formulations = ["equilibrium"] end
 
 N = length(y)
 
-@testset "loss test: penalty = $penalty_name; version = $version" for penalty_name in penalty_names, version in versions
+@testset "loss test: penalty = $penalty_name; version = $version; ovf_formulation = $ovf_formulation" for penalty_name in penalty_names, version in versions, ovf_formulation in ovf_formulations
 
-solver = JAMSDSolver()
+    solver = JAMSDSolver("", Dict{String,Any}([("ovf_formulation", ovf_formulation)]))
 
 m = JuMP.Model(solver=solver)
 
@@ -131,6 +132,9 @@ file_ref = readdlm(joinpath(cmp_dir, "mcp_" * penalty_name * "_v1_fit.out"))
 @test isapprox(getvalue(c), [unknown_ref[1]], rtol=1e-4)
 @test isapprox(getvalue(d), unknown_ref[2], rtol=1e-4)
 @test isapprox(getvalue(fit), file_ref[1:N], rtol=1e-4)
+
+contains(penalty_name, "soft_hinge") && continue
+
 @test isapprox(getvalue(loss_var), unknown_ref[3], rtol=1e-4)
 #@test isapprox(getobjectivevalue(m), unknown_ref[3], rtol=1e-4)
 
