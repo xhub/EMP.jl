@@ -15,13 +15,11 @@ u = [6.5    4.583;
      5.0    6.250;
      5.5    3.750]
 
-solver = JAMSDSolver()
-
 n = 3
 
-jump_model = JuMP.Model(solver=solver)
+ctx = EMP.Model()
 
-ctx = EMP.Model(jump_model)
+jump_model = ctx.model_ds
 
 ag = [MathPrgm(ctx) for i in 1:n]
 

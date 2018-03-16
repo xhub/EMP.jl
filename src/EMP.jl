@@ -13,9 +13,9 @@ else
     modeltypes = JuMP.Model
 end
 
-export @variableMP, @objectiveMP, @NLobjectiveMP, @constraintMP, @NLconstraintMP, vipair, NLvipair, solveEMP, MathPrgm, addvar!, addovf!, getsolution, status, get_solve_result, get_solve_result_num, get_model_result, get_model_result_num, get_solve_message, get_solve_exitcode
+export @variableMP, @objectiveMP, @NLobjectiveMP, @constraintMP, @NLconstraintMP, vipair, NLvipair, solveEMP, _solveEMP, MathPrgm, addvar!, addequ!, addovf!, getsolution, status, get_solve_result, get_solve_result_num, get_model_result, get_model_result_num, get_solve_message, get_solve_exitcode, solve
 
-
+" Mathematical Programm representation "
 type MathPrgm
     emp::Any
     vars::Vector{Int}
@@ -28,6 +28,7 @@ type MathPrgm
     equils::Vector{Vector{MathPrgm}}
 end
 
+" Optimal Value Function (OVF) representation "
 type OVF
     vidx::Int
     args::Vector{Int}
@@ -41,79 +42,73 @@ type OVF
 end
 
 
+" EMP master object "
 type Model{T<:modeltypes}
-    m::T
+    model_ds::T
     mps::Vector{MathPrgm}
     equils::Vector{Vector{MathPrgm}}
     equs::Vector{Tuple{Symbol, Int}}
     ovfs::Vector{OVF}
 end
 
-function check_jamsd(m)
-    error("Solver $m is not of type JAMSD")
-end
+"""
+    Model([modeling_pkg = "JuMP", solver = "jams"])
 
-# triggery here
-# if we store emp directly, print blows up ...
-function setemp_solver!(m::JAMSDWriter.JAMSDSolver, emp)
-    m.emp = function () return solveEMP(emp) end
-    return true
-end
+Create an EMP master object, using the modeling package given as argument to store the variables and equations.
+The solver argument is used to construct the JAMSDSolver object.
+"""
+function Model(; modeling_pkg = "JuMP", solver = "jams")
+    if modeling_pkg == "JuMP"
+        solver_jamsd = JAMSDWriter.JAMSDSolver(solver)
+        model_ds = JuMP.Model(solver=solver_jamsd)
+        emp = Model(model_ds, Vector{MathPrgm}(), Vector{Vector{MathPrgm}}(), Vector{Tuple{Symbol, Int}}(), Vector{OVF}())
+    elseif modeling_pkg == "Convex"
+        error("Convex.jl is WIP")
+    else
+        error("No valid modeling_ds value passed. It should be either ``JuMP'' or ``Convex''")
+    end
 
-function setemp!(m, emp)
-    error("Model $(typeof(m)) not supported: only JuMP and Convex are")
-end
+    setemp!(model_ds, emp)
 
-function setemp!(m::JuMP.Model, emp)
-    setemp_solver!(m.solver, emp)
-end
-
-function Model(m)
-    emp = Model(m, Vector{MathPrgm}(), Vector{Vector{MathPrgm}}(), Vector{Tuple{Symbol, Int}}(), Vector{OVF}())
-    setemp!(m, emp)
     return emp
 end
 
+"""
+    Model(model_ds)
+
+Create an EMP master object and use the argument as the model data storage object
+"""
+function Model{T<:modeltypes}(model_ds::T)
+    emp = Model(model_ds, Vector{MathPrgm}(), Vector{Vector{MathPrgm}}(), Vector{Tuple{Symbol, Int}}(), Vector{OVF}())
+
+    setemp!(model_ds, emp)
+
+    return emp
+end
+
+"""
+    MathPrgm(m::EMP.Model)
+
+Create a Mathematical Programm in the EMP master object
+"""
 function MathPrgm(m::EMP.Model)
     mp = MathPrgm(m, Vector{Int}(), Vector{Int}(), Dict{Int,Int}(), -1, -1, :undef, Vector{MathPrgm}(), Vector{Vector{MathPrgm}}())
     push!(m.mps, mp)
     return mp
 end
 
+" Create an Equilibrium object (not implemented) "
 function Equilibrium(emp::EMP.Model, mps::Vector{MathPrgm})
     push!(emp.equils, mps)
 end
 
-function getJAMSDModel(emp::EMP.Model{JuMP.Model})
-    jmodel = emp.m
-    if !jmodel.internalModelLoaded
-        JuMP.build(emp.m)
-    end
+include("helpers.jl")
 
-    return jmodel.internalModel.inner
-end
+"""
+    addvar!(mp, var)
 
-if HAVE_CONVEX
-    function getJAMSDModel(emp::EMP.Model{Convex.Problem})
-        error("EMP.jl does not yet Convex.jl")
-    end
-end
-
-function reg_equ(emp::EMP.Model{JuMP.Model}, cref::JuMP.ConstraintRef{JuMP.Model,JuMP.GenericRangeConstraint{JuMP.NonlinearExprData}})
-    push!(emp.equs, (:NL, cref.idx))
-    return length(emp.equs)
-end
-
-function reg_equ(emp::EMP.Model{JuMP.Model}, cref::JuMP.ConstraintRef{JuMP.Model,JuMP.GenericQuadConstraint{JuMP.GenericQuadExpr{Float64,JuMP.Variable}}})
-    push!(emp.equs, (:quad, cref.idx))
-    return length(emp.equs)
-end
-
-function reg_equ(emp::EMP.Model{JuMP.Model}, cref::JuMP.ConstraintRef{JuMP.Model,JuMP.GenericRangeConstraint{JuMP.GenericAffExpr{Float64,JuMP.Variable}}})
-    push!(emp.equs, (:lin, cref.idx))
-    return length(emp.equs)
-end
-
+Add a variable to a Mathematical Programm
+"""
 function addvar!(mp::MathPrgm, v::JuMP.Variable)
     push!(mp.vars, v.col)
 end
@@ -126,6 +121,11 @@ function addvar!(mp::MathPrgm, v::JuMP.JuMPArray{JuMP.Variable, 1, Tuple{Int64}}
     map(x-> addvar!(mp, x, m), values(v))
 end
 
+"""
+    addequ!(mp, eqn)
+
+Add an equation to a Mathematical Programm
+"""
 function addequ!(mp::MathPrgm, cref::ConstraintRef)
     gidx = reg_equ(mp.emp, cref)
     push!(mp.equs, gidx)
@@ -144,6 +144,9 @@ function addequ!(mp::MathPrgm, cref::JuMP.JuMPArray{JuMP.ConstraintRef, 1, Tuple
     map(x-> addequ!(mp, x), values(cref))
 end
 
+"""
+Add a variable to a Mathematical Programm. See JuMP `@variable` for examples
+"""
 macro variableMP(mp, args...)
     mp = esc(mp)
     # Pick out keyword arguments
@@ -160,19 +163,22 @@ macro variableMP(mp, args...)
         error("Please do not use keyword argument in @variableMP")
     end
 
+    # TODO(xhub) fix this with proper syntax
+    # dummyconstr = Expr(:call, @variable, $(mp).emp.m, $(esc(args[1])))
+    #then extend the arguments
     local len = length(args)
     if len == 0
-        code = :( v = @eval @variable $(mp).emp.m )
+        code = :( v = @eval @variable $(mp).emp.model_ds )
     elseif len == 1
-        code = :( v = @variable $(mp).emp.m $(esc(args[1])) )
+        code = :( v = @variable $(mp).emp.model_ds $(esc(args[1])) )
     elseif len == 2
-        code = :( v = @eval @variable $(mp).emp.m $(esc(args[2])) $(esc(args[3])) )
+        code = :( v = @eval @variable $(mp).emp.model_ds $(esc(args[2])) $(esc(args[3])) )
     elseif len == 3
-        code = :( v = @eval @variable $(mp).emp.m $(esc(args[2])) $(esc(args[3])) $(esc(args[4])) )
+        code = :( v = @eval @variable $(mp).emp.model_ds $(esc(args[2])) $(esc(args[3])) $(esc(args[4])) )
     elseif len == 4
-        code = :( v = @eval @variable $(mp).emp.m $(esc(args[2])) $(esc(args[3])) $(esc(args[4])) $(esc(args[5])) )
+        code = :( v = @eval @variable $(mp).emp.model_ds $(esc(args[2])) $(esc(args[3])) $(esc(args[4])) $(esc(args[5])) )
     elseif len == 6
-        code = :( v = @eval @variable $(mp).emp.m $(esc(args[2])) $(esc(args[3])) $(esc(args[4])) $(esc(args[5])) $(esc(args[6])) )
+        code = :( v = @eval @variable $(mp).emp.model_ds $(esc(args[2])) $(esc(args[3])) $(esc(args[4])) $(esc(args[5])) $(esc(args[6])) )
     end
     quote
         if $len > 6
@@ -186,7 +192,7 @@ end
 
 macro NLobjectiveMP(mp, sense, expr)
     dummyconstr = Expr(:call, esc(:(==)), esc(expr), 0)
-    code = :( cref = @NLconstraint $(esc(mp)).emp.m $dummyconstr )
+    code = :( cref = @NLconstraint $(esc(mp)).emp.model_ds $dummyconstr )
     quote
         $code
         gidx = addequ!($(esc(mp)), cref)
@@ -198,7 +204,7 @@ end
 
 macro objectiveMP(mp, sense, expr)
     dummyconstr = Expr(:call, esc(:(==)), esc(expr), 0)
-    code = :( cref = @constraint $(esc(mp)).emp.m $dummyconstr )
+    code = :( cref = @constraint $(esc(mp)).emp.model_ds $dummyconstr )
     quote
         $code
         gidx = addequ!($(esc(mp)), cref)
@@ -210,7 +216,7 @@ end
 
 macro constraintMP(mp, expr)
     quote
-        cref = @constraint($(esc(mp)).emp.m, $(esc(expr)))
+        cref = @constraint($(esc(mp)).emp.model_ds, $(esc(expr)))
         gdix = addequ!($(esc(mp)), cref)
         cref
     end
@@ -218,7 +224,7 @@ end
 
 macro constraintMP(mp, name, expr)
     quote
-        cref = @constraint($(esc(mp)).emp.m, $(esc(name)), $(esc(expr)))
+        cref = @constraint($(esc(mp)).emp.model_ds, $(esc(name)), $(esc(expr)))
         gdix = addequ!($(esc(mp)), cref)
         cref
     end
@@ -226,7 +232,7 @@ end
 
 macro NLconstraintMP(mp, expr)
     quote
-        cref = @NLconstraint($(esc(mp)).emp.m, $(esc(expr)))
+        cref = @NLconstraint($(esc(mp)).emp.model_ds, $(esc(expr)))
         gdix = addequ!($(esc(mp)), cref)
         cref
     end
@@ -234,42 +240,24 @@ end
 
 macro NLconstraintMP(mp, name, expr)
     quote
-        cref = @NLconstraint($(esc(mp)).emp.m, $(esc(name)), $(esc(expr)))
+        cref = @NLconstraint($(esc(mp)).emp.model_ds, $(esc(name)), $(esc(expr)))
         gdix = addequ!($(esc(mp)), cref)
         cref
     end
 end
 
-macro constraintFromExprMP(mp, expr)
-    dummyconstr = Expr(:call, esc(:(==)), esc(expr), 0)
-    code = :( cref = @constraint $(esc(mp)).emp.m $dummyconstr )
-    quote
-        $code
-        local gdix = addequ!($(esc(mp)), cref)
-        (cref, gidx)
-    end
-end
+"""
+    vipair(mp, expr, var)
 
-macro constraintFromExprMP2(mp, constr)
-    quote
-        local cref = @constraint $(esc(mp)).emp.m $(esc(constr))
-        local gdix = addequ!($(esc(mp)), cref)
-        (cref, gdix)
-    end
-end
+Add a variational inequality relationship between the variable `var` and the mapping `expr`
 
-macro NLconstraintFromExprMP(mp, expr)
-    dummyconstr = Expr(:call, esc(:(==)), esc(expr), 0)
-    code = :( cref = @NLconstraint $(esc(mp)).emp.m $dummyconstr )
-    quote
-        $code
-        local gidx = addequ!($(esc(mp)), cref)
-        (cref, gidx)
-    end
-end
-
+If there is no additional constraint of the feasible set of `var` besides lower and upper bouds,
+then this is defines a Mixed Complementarity Problem
+    expr ⟂ lb ≤ var ≤ ub
+Or
+    0 ∈ expr + N_[lb, ub] (var)
+"""
 function vipair(mp::MathPrgm, expr, var::JuMP.Variable)
-#    cref, eidx = @constraintFromExprMP(mp, expr)
     cref, eidx = @constraintFromExprMP2(mp, expr == 0.)
     mp.matching[var.col] = eidx
     cref
@@ -295,65 +283,39 @@ function NLvipair(mp::MathPrgm, expr::Vector{Any}, var::Vector{JuMP.Variable})
     end
 end
 
+"""
+Tag a variable as a supported OVF
 
+# Arguments
+- emp: the EMP object
+- v: the variable
+- args: the arguments for the OVF problem
+- `name::String`: the name of the OVF
+- `params::Dict`: the parameters for defining this OVF
+
+"""
 function addovf!(emp::Model{JuMP.Model}, v::JuMP.Variable, args::Vector{JuMP.Variable}, name::String, params::Dict)
     push!(emp.ovfs, OVF(v, args, name, params))
 end
 
+"""
+    solveEMP(emp)
 
-
-function make_equ_index!(equs, m) error("make_index: unsupported type $(typeof(m))") end
-
-function make_equ_index!(equs::Vector{Tuple{Symbol,Int}}, m::JAMSDWriter.JAMSDNonlinearModel)
-    jamsd_model = m.inner
-
-    for elt in Iterators.filter(x -> x[2][1] == :lin, enumerate(equs))
-        jamsd_model.nonquad_idx[elt[2][2]] = elt[1]
-    end
-
-    start_quad = length(jamsd_model.nonquad_idx)
-
-    for elt in Iterators.filter(x -> x[2][1] == :quad, enumerate(equs))
-        jamsd_model.nonquad_idx[elt[2][2]+start_quad] = elt[1]
-    end
-
-    start_nl = length(jamsd_model.nonquad_idx)
-
-    for elt in Iterators.filter(x -> x[2][1] == :NL, enumerate(equs))
-        jamsd_model.nonquad_idx[elt[2][2]+start_nl] = elt[1]
-    end
+Solve an EMP model
+"""
+function solveEMP{T<:modeltypes}(emp::EMP.Model{T})
+    error("solve not implemented for a model stat structure of type $(typeof(emp.model_ds))")
 end
 
-function make_equ_index!(equs::Vector{Tuple{Symbol,Int}}, m::JAMSDWriter.JAMSDLinearQuadraticModel)
-    jamsd_model = m.inner
-
-    for elt in Iterators.filter(x -> x[2][1] == :quad, enumerate(equs))
-        jamsd_model.quad_idx[elt[2][2]] = elt[1]
-    end
-
-    for elt in Iterators.filter(x -> x[2][1] == :lin, enumerate(equs))
-        jamsd_model.nonquad_idx[elt[2][2]] = elt[1]
-    end
-
+function solveEMP(emp::EMP.Model{JuMP.Model})
+    JuMP.solve(emp.model_ds)
 end
 
-function _setvalues(m, x::Vector) error("_setvalues: unsupported type $(typeof(m))") end
+#########################################################################################################
+# End of public API
+#########################################################################################################
 
-function _setvalues(m::JuMP.Model, x::Vector)
-    @assert length(m.colVal) == length(x)
-    m.colVal[:] = x[:]
-end
-
-function setvarnames(ctx, m)
-end
-
-function setvarnames(ctx, m::JuMP.Model)
-    if !m.internalModel.inner.d.hasvalue
-        JAMSDWriter.ctx_setvarnames(ctx, m.colNames)
-    end
-end
-
-function solveEMP(emp::EMP.Model)
+function _solveEMP(emp::EMP.Model)
     # Steps
     # 1. Define the full models and agents
     # 2. Solve
@@ -373,12 +335,12 @@ function solveEMP(emp::EMP.Model)
     #####
 
     if (length(emp.mps) > 0)
-        make_equ_index!(emp.equs, emp.m.internalModel)
+        make_equ_index!(emp.equs, emp.model_ds.internalModel)
     else
         JAMSDWriter.make_con_index!(jamsd_model)
     end
 
-    ctx = create_jamsd_ctx(jamsd_model)
+    ctx = JAMSDWriter.create_jamsd_ctx(jamsd_model)
     jamsd_model.jamsd_ctx = ctx
 
     jamsd_emp = JAMSDWriter.emp_create(ctx)
@@ -400,7 +362,7 @@ function solveEMP(emp::EMP.Model)
         JAMSDWriter.jamsd_set_modeltype(jamsd_model)
     end
 
-    setvarnames(ctx, emp.m)
+    setvarnames(ctx, emp.model_ds)
 #    JAMSDWriter.emp_mp_to_agent(ctx, jamsd_emp)
 
     gams_ctx = JAMSDWriter.jamsd_setup_gams()
@@ -417,7 +379,7 @@ function solveEMP(emp::EMP.Model)
     if jamsd_model.solve_exitcode == 0
         JAMSDWriter.emp_report_values(jamsd_emp, ctx)
         JAMSDWriter.report_results_common(jamsd_model)
-        _setvalues(emp.m, getsolution(emp))
+        _setvalues(emp.model_ds, getsolution(emp))
     else
         println("DEBUG: solver failed with status $(jamsd_model.solve_exitcode)")
         jamsd_model.status = :Error

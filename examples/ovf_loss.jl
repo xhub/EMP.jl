@@ -9,7 +9,7 @@ N = length(y)
 
 @testset "loss test: penalty = $penalty_name; version = $version; ovf_formulation = $ovf_formulation" for penalty_name in penalty_names, version in versions, ovf_formulation in ovf_formulations
 
-    solver = JAMSDSolver("", Dict{String,Any}([("ovf_formulation", ovf_formulation)]))
+solver = JAMSDSolver("", Dict{String,Any}([("ovf_formulation", ovf_formulation)]))
 
 m = JuMP.Model(solver=solver)
 

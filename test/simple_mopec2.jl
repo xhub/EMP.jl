@@ -7,11 +7,7 @@ ATmat = [1., -1., -1.]
 s = [.9, .1, 0]
 b = [0, 5, 3]
 
-solver = JAMSDSolver("jams")
-
-jump_model = JuMP.Model(solver=solver)
-
-mopec = EMP.Model(jump_model)
+mopec = EMP.Model()
 
 ag = EMP.MathPrgm(mopec)
 mkt = EMP.MathPrgm(mopec)
@@ -31,7 +27,7 @@ vipair(mkt, sum(-ATmat[i]*p[i] for i=1:n), y)
 @constraintMP(ag, sum(p[i]*x[i] for i=1:n) <= sum(p[i]*b[i] for i=1:n) )
 @NLobjectiveMP(ag, :Max, sum(s[i] * log(x[i]) for i=1:n))
 
-@test solve(jump_model) == :Optimal
+@test solveEMP(mopec) == :Optimal
 
 @test isapprox(getvalue(x), [3,2,0], atol=1e-4)
 @test isapprox(getvalue(p), [6,1,5], atol=1e-4)
