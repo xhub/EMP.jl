@@ -13,7 +13,7 @@ else
     modeltypes = JuMP.Model
 end
 
-export @variableMP, @objectiveMP, @NLobjectiveMP, @constraintMP, @NLconstraintMP, vipair, NLvipair, solveEMP, _solveEMP, MathPrgm, addvar!, addequ!, addovf!, getsolution, status, get_solve_result, get_solve_result_num, get_model_result, get_model_result_num, get_solve_message, get_solve_exitcode, solve
+export @variableMP, @objectiveMP, @NLobjectiveMP, @constraintMP, @NLconstraintMP, vipair, @NLvipair, solveEMP, _solveEMP, MathPrgm, addvar!, addequ!, addovf!, getsolution, status, get_solve_result, get_solve_result_num, get_model_result, get_model_result_num, get_solve_message, get_solve_exitcode, solve
 
 " Mathematical Programm representation "
 type MathPrgm
@@ -109,39 +109,39 @@ include("helpers.jl")
 
 Add a variable to a Mathematical Programm
 """
-function addvar!(mp::MathPrgm, v::JuMP.Variable)
-    push!(mp.vars, v.col)
+function addvar!(mp::MathPrgm, var::JuMP.Variable)
+    push!(mp.vars, var.col)
 end
 
-function addvar!(mp::MathPrgm, v::Vector{JuMP.Variable})
-    map(x -> addvar!(mp, x), v)
+function addvar!(mp::MathPrgm, var::Vector{JuMP.Variable})
+    map(x -> addvar!(mp, x), var)
 end
 
-function addvar!(mp::MathPrgm, v::JuMP.JuMPArray{JuMP.Variable, 1, Tuple{Int64}})
-    map(x-> addvar!(mp, x, m), values(v))
+function addvar!(mp::MathPrgm, var::JuMP.JuMPArray{JuMP.Variable, 1, Tuple{Int64}})
+    map(x-> addvar!(mp, x, m), values(var))
 end
 
 """
     addequ!(mp, eqn)
 
-Add an equation to a Mathematical Programm
+Add an equation to a Mathematical Programm. The argument eqn is a single or list of JuMP.ConstraintRef, not an expression
 """
-function addequ!(mp::MathPrgm, cref::ConstraintRef)
-    gidx = reg_equ(mp.emp, cref)
+function addequ!(mp::MathPrgm, eqn::JuMP.ConstraintRef)
+    gidx = reg_equ(mp.emp, eqn)
     push!(mp.equs, gidx)
     return gidx
 end
 
-function addequ!{M<:JuMP.AbstractModel,C<:JuMP.AbstractConstraint}(mp::MathPrgm, cref::Vector{ConstraintRef{M,C}})
-    map(x -> addequ!(mp, x), cref)
+function addequ!{M<:JuMP.AbstractModel,C<:JuMP.AbstractConstraint}(mp::MathPrgm, eqn::Vector{ConstraintRef{M,C}})
+    map(x -> addequ!(mp, x), eqn)
 end
 
-function addequ!(mp::MathPrgm, cref::Vector{JuMP.ConstraintRef})
-    map(x -> addequ!(mp, x), cref)
+function addequ!(mp::MathPrgm, eqn::Vector{JuMP.ConstraintRef})
+    map(x -> addequ!(mp, x), eqn)
 end
 
-function addequ!(mp::MathPrgm, cref::JuMP.JuMPArray{JuMP.ConstraintRef, 1, Tuple{Int64}})
-    map(x-> addequ!(mp, x), values(cref))
+function addequ!(mp::MathPrgm, eqn::JuMP.JuMPArray{JuMP.ConstraintRef, 1, Tuple{Int64}})
+    map(x-> addequ!(mp, x), values(eqn))
 end
 
 """
@@ -190,6 +190,11 @@ macro variableMP(mp, args...)
     end
 end
 
+"""
+    @NLobjectiveMP(mp, sense, expr)
+
+Add a nonlinear objective to a mathematical programm. Sense is either `:Min` or `:Max`.
+"""
 macro NLobjectiveMP(mp, sense, expr)
     dummyconstr = Expr(:call, esc(:(==)), esc(expr), 0)
     code = :( cref = @NLconstraint $(esc(mp)).emp.model_ds $dummyconstr )
@@ -202,6 +207,11 @@ macro NLobjectiveMP(mp, sense, expr)
     end
 end
 
+"""
+    @objectiveMP(mp, sense, expr)
+
+Add a linear objective to a mathematical programm. Sense is either `:Min` or `:Max`.
+"""
 macro objectiveMP(mp, sense, expr)
     dummyconstr = Expr(:call, esc(:(==)), esc(expr), 0)
     code = :( cref = @constraint $(esc(mp)).emp.model_ds $dummyconstr )
@@ -214,6 +224,11 @@ macro objectiveMP(mp, sense, expr)
     end
 end
 
+"""
+    @constraintMP(mp, expr)
+
+Add a linear constraint to a mathematical programm
+"""
 macro constraintMP(mp, expr)
     quote
         cref = @constraint($(esc(mp)).emp.model_ds, $(esc(expr)))
@@ -222,6 +237,11 @@ macro constraintMP(mp, expr)
     end
 end
 
+"""
+    @constraintMP(mp, name, expr)
+
+Add a linear constraint (with a identifier `name`) to a mathematical programm
+"""
 macro constraintMP(mp, name, expr)
     quote
         cref = @constraint($(esc(mp)).emp.model_ds, $(esc(name)), $(esc(expr)))
@@ -230,6 +250,11 @@ macro constraintMP(mp, name, expr)
     end
 end
 
+"""
+    @NLconstraintMP(mp, expr)
+
+Add a nonlinear constraint to a mathematical programm
+"""
 macro NLconstraintMP(mp, expr)
     quote
         cref = @NLconstraint($(esc(mp)).emp.model_ds, $(esc(expr)))
@@ -238,6 +263,11 @@ macro NLconstraintMP(mp, expr)
     end
 end
 
+"""
+    @NLconstraintMP(mp, name, expr)
+
+Add a nonlinear constraint (with a identifier `name`) to a mathematical programm
+"""
 macro NLconstraintMP(mp, name, expr)
     quote
         cref = @NLconstraint($(esc(mp)).emp.model_ds, $(esc(name)), $(esc(expr)))
@@ -249,9 +279,9 @@ end
 """
     vipair(mp, expr, var)
 
-Add a variational inequality relationship between the variable `var` and the mapping `expr`
+Add an affine variational inequality relationship between the variable `var` and the mapping `expr`
 
-If there is no additional constraint of the feasible set of `var` besides lower and upper bouds,
+If there is no additional constraint of the feasible set of `var` besides lower and upper bounds,
 then this is defines a Mixed Complementarity Problem
     expr ⟂ lb ≤ var ≤ ub
 Or
@@ -270,18 +300,29 @@ function vipair(mp::MathPrgm, expr::Vector, var::Vector{JuMP.Variable})
     end
 end
 
+"""
+    @NLvipair(mp, expr, var)
+
+Add a nonlinear variational inequality relationship between the variable `var` and the mapping `expr`
+
+If there is no additional constraint of the feasible set of `var` besides lower and upper bounds,
+then this is defines a Mixed Complementarity Problem
+    expr ⟂ lb ≤ var ≤ ub
+Or
+    0 ∈ expr + N_[lb, ub] (var)
+"""
 macro NLvipair(mp, expr, var)
     cref, eidx = @NLconstraintFromExprMP(mp, expr)
     mp.matching[var.col] = eidx
     cref
 end
 
-function NLvipair(mp::MathPrgm, expr::Vector{Any}, var::Vector{JuMP.Variable})
-    @assert length(expr) == length(var)
-    for i in 1:length(var)
-        NLvipair(mp, expr[i], var[i])
-    end
-end
+#function NLvipair(mp::MathPrgm, expr::Vector{Any}, var::Vector{JuMP.Variable})
+#    @assert length(expr) == length(var)
+#    for i in 1:length(var)
+#        NLvipair(mp, expr[i], var[i])
+#    end
+#end
 
 """
 Tag a variable as a supported OVF

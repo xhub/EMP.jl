@@ -12,7 +12,7 @@ Currently, using the JAMSD library is the only option to solve an optimization p
 
 ## Design
 
-This package is designed as a thin layer over the existing modeling framework in JuliaOpt. Right now, only JuMP is supported.
+This package is designed as a thin layer over an existing modeling framework in JuliaOpt. Right now, only JuMP is supported.
 The idea is to use this framework to store variables and equations. The additional information to capture the EMP concept is stored
 in an EMP master object.
 
