@@ -43,5 +43,5 @@ build_script:
   - C:\projects\julia\bin\julia -e "versioninfo();
       Pkg.clone(pwd(), \"EMP\"); Pkg.build(\"EMP\")"
 
-test_script:
-  - C:\projects\julia\bin\julia -e "Pkg.test(\"EMP\")"
+# test_script:
+#  - C:\projects\julia\bin\julia -e "Pkg.test(\"EMP\")"
