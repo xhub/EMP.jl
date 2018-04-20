@@ -406,8 +406,9 @@ function _solveEMP(emp::EMP.Model)
     setvarnames(ctx, emp.model_ds)
 #    JAMSDWriter.emp_mp_to_agent(ctx, jamsd_emp)
 
-    gams_ctx = JAMSDWriter.jamsd_setup_gams()
+    gams_ctx, gams_dir = JAMSDWriter.jamsd_setup_gams()
     jamsd_model.jamsd_ctx_dest = gams_ctx
+    jamsd_model.gams_dir = gams_dir
 
     jamsd_model.solve_exitcode = JAMSDWriter.jamsd_solve(ctx, gams_ctx, jamsd_model.solver_name, jamsd_emp)
 
