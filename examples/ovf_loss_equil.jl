@@ -14,6 +14,8 @@ fit_model = EMP.Model(m)
 
 mps = [MathPrgm(fit_model) for i=1:5]
 
+EquilibriumProblem(fit_model, mps)
+
 # primary unknonwn
 @variableMP(mps[1], c1[j=1:1])
 @variableMP(mps[1], d1)

@@ -23,6 +23,8 @@ jump_model = ctx.model_ds
 
 ag = [MathPrgm(ctx) for i in 1:n]
 
+EquilibriumProblem(ctx, ag)
+
 @variable(jump_model, x[i=1:n] >= 0)
 
 # Add the variable to the MP

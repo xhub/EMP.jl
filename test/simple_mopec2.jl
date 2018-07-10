@@ -9,8 +9,10 @@ b = [0, 5, 3]
 
 mopec = EMP.Model()
 
-ag = EMP.MathPrgm(mopec)
-mkt = EMP.MathPrgm(mopec)
+ag = MathPrgm(mopec)
+mkt = MathPrgm(mopec)
+
+EquilibriumProblem(mopec, [ag, mkt])
 
 n = 3
 

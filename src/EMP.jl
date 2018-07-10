@@ -13,7 +13,7 @@ else
     modeltypes = JuMP.Model
 end
 
-export @variableMP, @objectiveMP, @NLobjectiveMP, @constraintMP, @NLconstraintMP, vipair, @NLvipair, solveEMP, _solveEMP, MathPrgm, addvar!, addequ!, addovf!, getsolution, status, get_solve_result, get_solve_result_num, get_model_result, get_model_result_num, get_solve_message, get_solve_exitcode, solve
+export @variableMP, @objectiveMP, @NLobjectiveMP, @constraintMP, @NLconstraintMP, vipair, @NLvipair, solveEMP, _solveEMP, MathPrgm, EquilibriumProblem, addvar!, addequ!, addovf!, getsolution, status, get_solve_result, get_solve_result_num, get_model_result, get_model_result_num, get_solve_message, get_solve_exitcode, solve
 
 " Mathematical Programm representation "
 type MathPrgm
@@ -24,7 +24,7 @@ type MathPrgm
     objequ::Int
     objvar::Int
     sense::Symbol
-    mp::Vector{MathPrgm}
+    mps::Vector{MathPrgm}
     equils::Vector{Vector{MathPrgm}}
 end
 
@@ -47,6 +47,7 @@ type Model{T<:modeltypes}
     model_ds::T
     mps::Vector{MathPrgm}
     equils::Vector{Vector{MathPrgm}}
+    root::Nullable{Union{Vector{MathPrgm},Vector{Vector{MathPrgm}}}}
     equs::Vector{Tuple{Symbol, Int}}
     ovfs::Vector{OVF}
 end
@@ -61,7 +62,7 @@ function Model(; modeling_pkg = "JuMP", solver = "jams")
     if modeling_pkg == "JuMP"
         solver_jamsd = JAMSDWriter.JAMSDSolver(solver)
         model_ds = JuMP.Model(solver=solver_jamsd)
-        emp = Model(model_ds, Vector{MathPrgm}(), Vector{Vector{MathPrgm}}(), Vector{Tuple{Symbol, Int}}(), Vector{OVF}())
+        emp = Model(model_ds, Vector{MathPrgm}(), Vector{Vector{MathPrgm}}(), Nullable{Union{Vector{MathPrgm},Vector{Vector{MathPrgm}}}}(), Vector{Tuple{Symbol, Int}}(), Vector{OVF}())
     elseif modeling_pkg == "Convex"
         error("Convex.jl is WIP")
     else
@@ -79,7 +80,7 @@ end
 Create an EMP master object and use the argument as the model data storage object
 """
 function Model{T<:modeltypes}(model_ds::T)
-    emp = Model(model_ds, Vector{MathPrgm}(), Vector{Vector{MathPrgm}}(), Vector{Tuple{Symbol, Int}}(), Vector{OVF}())
+    emp = Model(model_ds, Vector{MathPrgm}(), Vector{Vector{MathPrgm}}(), Nullable{Union{Vector{MathPrgm},Vector{Vector{MathPrgm}}}}(), Vector{Tuple{Symbol, Int}}(), Vector{OVF}())
 
     setemp!(model_ds, emp)
 
@@ -100,6 +101,15 @@ end
 " Create an Equilibrium object (not implemented) "
 function Equilibrium(emp::EMP.Model, mps::Vector{MathPrgm})
     push!(emp.equils, mps)
+end
+
+"""
+    EquilibriumProblem(emp::EMP.Model, mps::Vector{MathPrgm})
+
+Define the EMP problem as an equilibrium problem
+"""
+function EquilibriumProblem(emp::EMP.Model, mps::Vector{MathPrgm})
+    emp.root = mps
 end
 
 include("helpers.jl")
@@ -356,11 +366,15 @@ end
 # End of public API
 #########################################################################################################
 
+include("emptree.jl")
+
 function _solveEMP(emp::EMP.Model)
-    # Steps
+
+    # Steps:
     # 1. Define the full models and agents
     # 2. Solve
     # 3. Report values
+
     jamsd_model = getJAMSDModel(emp)
 
     JAMSDWriter.make_var_index!(jamsd_model)
@@ -386,12 +400,8 @@ function _solveEMP(emp::EMP.Model)
 
     jamsd_emp = JAMSDWriter.emp_create(ctx)
 
-    JAMSDWriter.emp_mp_ensure(jamsd_emp, length(emp.mps))
-
-    for (idx, mp) in enumerate(emp.mps)
-        jamsd_mp = JAMSDWriter.jamsd_declare_mathprgm(mp, ctx, idx)
-        JAMSDWriter.emp_mp_store(jamsd_emp, jamsd_mp)
-    end
+    # Define the EMP tree
+    emptree(emp, jamsd_emp, ctx)
 
     for ovf in emp.ovfs
         JAMSDWriter.jamsd_ovf(jamsd_emp, ovf)
@@ -404,7 +414,6 @@ function _solveEMP(emp::EMP.Model)
     end
 
     setvarnames(ctx, emp.model_ds)
-#    JAMSDWriter.emp_mp_to_agent(ctx, jamsd_emp)
 
     gams_ctx, gams_dir = JAMSDWriter.jamsd_setup_gams()
     jamsd_model.jamsd_ctx_dest = gams_ctx
