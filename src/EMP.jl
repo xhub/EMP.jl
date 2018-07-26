@@ -13,7 +13,7 @@ else
     modeltypes = JuMP.Model
 end
 
-export @variableMP, @objectiveMP, @NLobjectiveMP, @constraintMP, @NLconstraintMP, vipair, @NLvipair, solveEMP, _solveEMP, MathPrgm, EquilibriumProblem, addvar!, addequ!, addovf!, getsolution, status, get_solve_result, get_solve_result_num, get_model_result, get_model_result_num, get_solve_message, get_solve_exitcode, solve
+export @variableMP, @objectiveMP, @NLobjectiveMP, @constraintMP, @NLconstraintMP, vipair, @NLvipair, solveEMP, _solveEMP, MathPrgm, EquilibriumProblem, BilevelProblem, addvar!, addequ!, addovf!, getsolution, status, get_solve_result, get_solve_result_num, get_model_result, get_model_result_num, get_solve_message, get_solve_exitcode, solve, getobjval
 
 " Mathematical Programm representation "
 type MathPrgm
@@ -26,6 +26,7 @@ type MathPrgm
     sense::Symbol
     mps::Vector{MathPrgm}
     equils::Vector{Vector{MathPrgm}}
+    solverobj::Ptr{}
 end
 
 " Optimal Value Function (OVF) representation "
@@ -47,7 +48,7 @@ type Model{T<:modeltypes}
     model_ds::T
     mps::Vector{MathPrgm}
     equils::Vector{Vector{MathPrgm}}
-    root::Nullable{Union{Vector{MathPrgm},Vector{Vector{MathPrgm}}}}
+    root::Nullable{Union{MathPrgm, Vector{MathPrgm},Vector{Vector{MathPrgm}}}}
     equs::Vector{Tuple{Symbol, Int}}
     ovfs::Vector{OVF}
 end
@@ -62,7 +63,7 @@ function Model(; modeling_pkg = "JuMP", solver = "jams")
     if modeling_pkg == "JuMP"
         solver_jamsd = JAMSDWriter.JAMSDSolver(solver)
         model_ds = JuMP.Model(solver=solver_jamsd)
-        emp = Model(model_ds, Vector{MathPrgm}(), Vector{Vector{MathPrgm}}(), Nullable{Union{Vector{MathPrgm},Vector{Vector{MathPrgm}}}}(), Vector{Tuple{Symbol, Int}}(), Vector{OVF}())
+        emp = Model(model_ds, Vector{MathPrgm}(), Vector{Vector{MathPrgm}}(), Nullable{Union{MathPrgm,Vector{MathPrgm},Vector{Vector{MathPrgm}}}}(), Vector{Tuple{Symbol, Int}}(), Vector{OVF}())
     elseif modeling_pkg == "Convex"
         error("Convex.jl is WIP")
     else
@@ -80,7 +81,7 @@ end
 Create an EMP master object and use the argument as the model data storage object
 """
 function Model{T<:modeltypes}(model_ds::T)
-    emp = Model(model_ds, Vector{MathPrgm}(), Vector{Vector{MathPrgm}}(), Nullable{Union{Vector{MathPrgm},Vector{Vector{MathPrgm}}}}(), Vector{Tuple{Symbol, Int}}(), Vector{OVF}())
+    emp = Model(model_ds, Vector{MathPrgm}(), Vector{Vector{MathPrgm}}(), Nullable{Union{MathPrgm,Vector{MathPrgm},Vector{Vector{MathPrgm}}}}(), Vector{Tuple{Symbol, Int}}(), Vector{OVF}())
 
     setemp!(model_ds, emp)
 
@@ -93,7 +94,7 @@ end
 Create a Mathematical Programm in the EMP master object
 """
 function MathPrgm(m::EMP.Model)
-    mp = MathPrgm(m, Vector{Int}(), Vector{Int}(), Dict{Int,Int}(), -1, -1, :undef, Vector{MathPrgm}(), Vector{Vector{MathPrgm}}())
+    mp = MathPrgm(m, Vector{Int}(), Vector{Int}(), Dict{Int,Int}(), -1, -1, :undef, Vector{MathPrgm}(), Vector{Vector{MathPrgm}}(),C_NULL)
     push!(m.mps, mp)
     return mp
 end
@@ -110,6 +111,11 @@ Define the EMP problem as an equilibrium problem
 """
 function EquilibriumProblem(emp::EMP.Model, mps::Vector{MathPrgm})
     emp.root = mps
+end
+
+function BilevelProblem(emp::EMP.Model, upper::MathPrgm, lower::MathPrgm)
+    emp.root = upper
+    push!(upper.mps, lower)
 end
 
 include("helpers.jl")
@@ -148,6 +154,15 @@ end
 
 function addequ!(mp::MathPrgm, eqn::Vector{JuMP.ConstraintRef})
     map(x -> addequ!(mp, x), eqn)
+end
+
+function addequ!(mp::MathPrgm, eqn)
+    if isa(eqn, Array)
+        map(x -> addequ!(mp, x), eqn)
+    else
+        throw("Unknown equation type $(typeof(eqn)) for argument $eqn")
+    end
+
 end
 
 function addequ!(mp::MathPrgm, eqn::JuMP.JuMPArray{JuMP.ConstraintRef, 1, Tuple{Int64}})
@@ -200,6 +215,7 @@ macro variableMP(mp, args...)
     end
 end
 
+# TODO(xhub) add check warning for an already defined objective equation
 """
     @NLobjectiveMP(mp, sense, expr)
 
@@ -439,7 +455,8 @@ function _solveEMP(emp::EMP.Model)
         jamsd_model.solve_result_num = 999
     end
 
-    JAMSDWriter.emp_delete(jamsd_emp)
+    #    TODO(xhub) move that elsewhere
+#    JAMSDWriter.emp_delete(jamsd_emp)
 end
 
 ###################################################################################################
@@ -451,6 +468,12 @@ end
 getsolution(emp::EMP.Model) = copy(getJAMSDModel(emp).solution)
 getsolvetime(emp::EMP.Model) = getJAMSDModel(emp).solve_time
 status(emp::EMP.Model) = status(getJAMSDModel(emp))
+
+function getobjval(mp::MathPrgm)
+    jamsd_model = getJAMSDModel(mp.emp)
+    objvar = JAMSDWriter.emp_mp_getobjvar(mp.solverobj)
+    JAMSDWriter.ctx_getvarval(jamsd_model.jamsd_ctx, objvar)
+end
 
 # Access to solve results
 get_solve_result(emp::EMP.Model) = getJAMSDModel(emp).solve_result
