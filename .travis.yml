@@ -40,7 +40,7 @@ env:
 
 ## uncomment the following lines to override the default test script
 script:
-  - julia -e 'Pkg.clone(\"https://github.com/xhub/JAMSDWriter.jl\"); Pkg.build(\"JAMSDWriter\"); Pkg.clone(pwd()); Pkg.build("EMP"); Pkg.test("EMP"; coverage=true)'
+  - julia -e 'Pkg.clone("https://github.com/xhub/JAMSDWriter.jl"); Pkg.build("JAMSDWriter"); Pkg.clone(pwd()); Pkg.build("EMP"); Pkg.test("EMP"; coverage=true)'
 
 after_success:
   - echo $TRAVIS_JULIA_VERSION
