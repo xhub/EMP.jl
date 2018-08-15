@@ -1,3 +1,9 @@
+[![Build Status](https://travis-ci.com/xhub/EMP.jl.svg?branch=master)](https://travis-ci.com/xhub/EMP.jl)
+[![Build status](https://ci.appveyor.com/api/projects/status/x3hjfgt7wiphvf5i?svg=true)](https://ci.appveyor.com/project/xhub/emp-jl)
+[![Coverage Status](https://coveralls.io/repos/github/xhub/EMP.jl/badge.svg?branch=master)](https://coveralls.io/github/xhub/EMP.jl?branch=master)
+[![codecov](https://codecov.io/gh/xhub/EMP.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/xhub/EMP.jl)
+
+
 # EMP
 
 This package enables the modeling of *Extending Mathematical Progmming* (EMP) concepts within the JuliaOpt ecosystem.

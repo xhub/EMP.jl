@@ -2,33 +2,48 @@
 language: julia
 os:
   - linux
-  - osx
+#  - osx
+#
 julia:
   - 0.6
-  - nightly
+  - 0.7
+#  - 1.0
+
+matrix:
+    allow_failures:
+        - julia: 0.7
+#        - julia: 1.0
+
 notifications:
   email: false
-git:
-  depth: 99999999
 
-## uncomment the following lines to allow failures on nightly julia
-## (tests will run but not make your overall status red)
-#matrix:
-#  allow_failures:
-#  - julia: nightly
+sudo: false
+
+#git:
+#  depth: 99999999
 
 ## uncomment and modify the following lines to manually install system packages
 #addons:
 #  apt: # apt-get for linux
 #    packages:
 #    - gfortran
-#before_script: # homebrew for mac
-#  - if [ $TRAVIS_OS_NAME = osx ]; then brew install gcc; fi
+#
+before_script: # homebrew for mac
+  - cd $HOME
+  - wget https://d37drm4t2jghv5.cloudfront.net/distributions/25.1.2/linux/linux_x64_64_sfx.exe -O gams-install.exe
+  - chmod +x gams-install.exe
+  - ./gams-install.exe > /dev/null
+  - cd -
+
+env:
+  - PATH: $PATH:$HOME/gams25.1_linux_x64_64_sfx
 
 ## uncomment the following lines to override the default test script
-#script:
-#  - julia -e 'Pkg.clone(pwd()); Pkg.build("EMP"); Pkg.test("EMP"; coverage=true)'
+script:
+  - julia -e 'Pkg.clone(\"https://github.com/xhub/JAMSDWriter.jl\"); Pkg.build(\"JAMSDWriter\"); Pkg.clone(pwd()); Pkg.build("EMP"); Pkg.test("EMP"; coverage=true)'
+
 after_success:
+  - echo $TRAVIS_JULIA_VERSION
   # push coverage results to Coveralls
   - julia -e 'cd(Pkg.dir("EMP")); Pkg.add("Coverage"); using Coverage; Coveralls.submit(Coveralls.process_folder())'
   # push coverage results to Codecov
