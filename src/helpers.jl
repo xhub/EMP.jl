@@ -5,7 +5,7 @@ end
 # trickery here
 # if we store emp directly, print blows up ...
 function setemp_solver!(m::JAMSDWriter.JAMSDSolver, emp)
-    m.emp = function () return _solveEMP(emp) end
+    JAMSDWriter.jamsd_setemp!(m, function () return _solveEMP(emp) end)
     return true
 end
 
@@ -48,7 +48,8 @@ function reg_equ(emp::EMP.Model{JuMP.Model}, cref::JuMP.ConstraintRef{JuMP.Model
 end
 
 macro constraintFromExprMP(mp, expr)
-    dummyconstr = Expr(:call, esc(:(==)), esc(expr), 0)
+    #dummyconstr = Expr(:call, esc(:(==)), esc(expr), 0)
+    dummyconstr = Expr(:call, :(==), esc(expr), 0)
     code = :( cref = @constraint $(esc(mp)).emp.model_ds $dummyconstr )
     quote
         $code
@@ -67,6 +68,7 @@ end
 
 macro NLconstraintFromExprMP(mp, expr)
     dummyconstr = Expr(:call, esc(:(==)), esc(expr), 0)
+    #dummyconstr = Expr(:call, :(==), esc(expr), 0)
     code = :( cref = @NLconstraint $(esc(mp)).emp.model_ds $dummyconstr )
     quote
         $code

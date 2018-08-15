@@ -5,7 +5,12 @@ module EMP
 using JuMP
 using JAMSDWriter
 
-HAVE_CONVEX = try using Convex; true catch false end
+HAVE_CONVEX = false
+
+if VERSION >= v"0.7"
+    # quickfix for Nullable
+    using Nullables
+end
 
 if HAVE_CONVEX
     modeltypes = Union{JuMP.Model,Convex.Problem}
@@ -16,7 +21,7 @@ end
 export @variableMP, @objectiveMP, @NLobjectiveMP, @constraintMP, @NLconstraintMP, vipair, @NLvipair, solveEMP, _solveEMP, MathPrgm, EquilibriumProblem, BilevelProblem, addvar!, addequ!, addovf!, getsolution, status, get_solve_result, get_solve_result_num, get_model_result, get_model_result_num, get_solve_message, get_solve_exitcode, solve, getobjval
 
 " Mathematical Programm representation "
-type MathPrgm
+mutable struct MathPrgm
     emp::Any
     vars::Vector{Int}
     equs::Vector{Int}
@@ -30,7 +35,7 @@ type MathPrgm
 end
 
 " Optimal Value Function (OVF) representation "
-type OVF
+mutable struct OVF
     vidx::Int
     args::Vector{Int}
     name::String
@@ -44,7 +49,7 @@ end
 
 
 " EMP master object "
-type Model{T<:modeltypes}
+mutable struct Model{T<:modeltypes}
     model_ds::T
     mps::Vector{MathPrgm}
     equils::Vector{Vector{MathPrgm}}
