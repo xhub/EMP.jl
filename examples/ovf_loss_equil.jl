@@ -6,7 +6,7 @@ if !isdefined(:ovf_formulations); ovf_formulations = ["equilibrium"] end
 
 @testset "Equilibrium loss test: penalty = $penalty_name; ovf_formulation = $ovf_formulation" for penalty_name in penalty_names, ovf_formulation in ovf_formulations
 
-  solver = JAMSDSolver("", Dict{String,Any}([("ovf_formulation", ovf_formulation)]))
+  solver = ReSHOPSolver("", Dict{String,Any}([("ovf_formulation", ovf_formulation)]))
 
 m = JuMP.Model(solver=solver)
 

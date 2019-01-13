@@ -1,4 +1,4 @@
-using JuMP, JAMSDWriter, EMP
+using JuMP, ReSHOP, EMP
 
 @testset "river basin (GNEP)" begin
 
@@ -14,7 +14,7 @@ u = [6.5    4.583;
      5.0    6.250;
      5.5    3.750]
 
-solver = JAMSDWriter.JAMSDSolver()
+solver = ReSHOP.ReSHOPSolver()
 
 n = 3
 

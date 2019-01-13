@@ -50,8 +50,8 @@ install:
 build_script:
 # Need to convert from shallow to complete for Pkg.clone to work
   - IF EXIST .git\shallow (git fetch --unshallow)
-  - C:\projects\julia\bin\julia -e "versioninfo(); Pkg.clone(\"https://github.com/xhub/JAMSDWriter.jl\");
-      Pkg.build(\"JAMSDWriter\"); Pkg.clone(pwd(), \"EMP\"); Pkg.build(\"EMP\")"
+  - C:\projects\julia\bin\julia -e "versioninfo(); Pkg.clone(\"https://github.com/xhub/ReSHOP.jl\");
+      Pkg.build(\"ReSHOP\"); Pkg.clone(pwd(), \"EMP\"); Pkg.build(\"EMP\")"
 
 test_script:
   - C:\projects\julia\bin\julia -e "Pkg.test(\"EMP\")"

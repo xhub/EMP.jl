@@ -1,5 +1,5 @@
-using JuMP, JAMSDWriter, EMP
-using Base.Test
+using JuMP, ReSHOP, EMP
+using Compat.Test
 
 @testset "simple mopec" begin
 
@@ -23,11 +23,11 @@ n = 3
 JuMP.fix(p[2], 1.)
 JuMP.setvalue(x[1:n], ones(n))
 
+@NLobjectiveMP(ag, :Max, sum(s[i] * log(x[i]) for i=1:n))
+@constraintMP(ag, sum(p[i]*x[i] for i=1:n) <= sum(p[i]*b[i] for i=1:n) )
+
 vipair(mkt, [b[i] + ATmat[i]*y - x[i] for i=1:n], p)
 vipair(mkt, sum(-ATmat[i]*p[i] for i=1:n), y)
-
-@constraintMP(ag, sum(p[i]*x[i] for i=1:n) <= sum(p[i]*b[i] for i=1:n) )
-@NLobjectiveMP(ag, :Max, sum(s[i] * log(x[i]) for i=1:n))
 
 @test solveEMP(mopec) == :Optimal
 

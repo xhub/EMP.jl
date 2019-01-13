@@ -1,5 +1,5 @@
 using EMP
-using Base.Test
+using Compat.Test
 
 #examples_path = joinpath(dirname(dirname(@__FILE__)), "examples")
 #for example in ["simple_mopec2.jl"]

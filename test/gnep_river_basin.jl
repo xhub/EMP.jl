@@ -1,5 +1,5 @@
-using JuMP, JAMSDWriter, EMP
-using Base.Test
+using JuMP, ReSHOP, EMP
+using Compat.Test
 
 @testset "gnep river basin" begin
 

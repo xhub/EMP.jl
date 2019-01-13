@@ -1,4 +1,4 @@
-using JuMP, EMP, JAMSDWriter
+using JuMP, EMP, ReSHOP
 using Base.Test
 
 # Data is from  ``Data analysis recipes: Fitting a model to data'' by Hogg, Bovy & Lang
