@@ -26,8 +26,8 @@ JuMP.setvalue(x[1:n], ones(n))
 @NLobjectiveMP(ag, :Max, sum(s[i] * log(x[i]) for i=1:n))
 @constraintMP(ag, sum(p[i]*x[i] for i=1:n) <= sum(p[i]*b[i] for i=1:n) )
 
-vipair(mkt, [b[i] + ATmat[i]*y - x[i] for i=1:n], p)
-vipair(mkt, sum(-ATmat[i]*p[i] for i=1:n), y)
+@vipair(mkt, [b[i] + ATmat[i]*y - x[i] for i=1:n], p)
+@vipair(mkt, sum(-ATmat[i]*p[i] for i=1:n), y)
 
 @test solveEMP(mopec) == :Optimal
 

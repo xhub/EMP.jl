@@ -11,15 +11,15 @@ function ast_sym_esc!(array_args)
 end
 
 function ast_sym2_esc!(ast_node, skipsym=Vector{Symbol}(undef,0))
-    println("ast node is $(ast_node)")
+#    println("ast node is $(ast_node)")
     if (ast_node.head == :call || ast_node.head == :callmacro)
         s=2
     elseif (ast_node.head == :generator)
         # we have faith here that the iterator has a structure like
         # ast_node.args[2] ~ i=1:/N
-        println("skipping generator var $(ast_node.args[2].args[1])")
+#        println("skipping generator var $(ast_node.args[2].args[1])")
         push!(skipsym, ast_node.args[2].args[1])
-        println("new skipsym $(skipsym)")
+#        println("new skipsym $(skipsym)")
         # now visit ast_node.args[1] and ast_node.args[2].args[2] (i=1:N)
         ast_sym2_esc!(ast_node.args[1], skipsym)
         ast_sym2_esc!(ast_node.args[2].args[2], skipsym)
@@ -28,9 +28,9 @@ function ast_sym2_esc!(ast_node, skipsym=Vector{Symbol}(undef,0))
         s=1
     end
     for i=s:length(ast_node.args)
-        println("skipsym is $(skipsym[:])")
+#        println("skipsym is $(skipsym[:])")
         if (typeof(ast_node.args[i]) == Symbol && !(ast_node.args[i] in skipsym))
-            println("escaping $(ast_node.args[i])")
+#            println("escaping $(ast_node.args[i])")
             ast_node.args[i] = esc(ast_node.args[i])
         elseif (typeof(ast_node.args[i]) == Expr)
             ast_sym2_esc!(ast_node.args[i], skipsym)
@@ -147,9 +147,7 @@ end
 Add a nonlinear objective to a mathematical programm. Sense is either `:Min` or `:Max`.
 """
 macro NLobjectiveMP(mp, sense, expr)
-    dump(expr)
     ast_sym2_esc!(expr)
-    dump(expr)
     dummyconstr = Expr(:call, :(==), expr, 0)
     mmp = esc(mp)
     return quote
@@ -253,46 +251,72 @@ then this is defines a Mixed Complementarity Problem
 Or
     0 ∈ expr + N_[lb, ub] (var)
 """
-function vipair(mp::MathPrgm, expr, var::JuMP.Variable)
-    cref, eidx = @constraintFromExprMP(mp, expr)
-    mp.matching[var.col] = eidx
-    cref
-end
+#function vipair(mp::MathPrgm, expr, var::JuMP.Variable)
+#    cref, eidx = @constraintFromExprMP(mp, expr)
+#    mp.matching[var.col] = eidx
+#    cref
+#end
+#
+#function vipair(mp::MathPrgm, expr::Vector, var::Vector{JuMP.Variable})
+#    @assert length(expr) == length(var)
+#    for i in 1:length(var)
+#        vipair(mp, expr[i], var[i])
+#    end
+#end
+#
+#function vipair(mp::MathPrgm, expr::Vector, var::JuMP.JuMPArray)
+#    @assert length(expr) == length(var)
+#    for i in 1:length(var)
+#        vipair(mp, expr[i], var[i])
+#    end
+#end
 
-function vipair(mp::MathPrgm, expr::Vector, var::Vector{JuMP.Variable})
-    @assert length(expr) == length(var)
-    for i in 1:length(var)
-        vipair(mp, expr[i], var[i])
+macro vipair(mp, expr, var)
+    dump(expr, maxdepth=8)
+    println(expr.head)
+    if (expr.head == :vect || expr.head == :generator || expr.head == :comprehension)
+        use_broadcast = true
+    else
+        use_broadcast = false
+    end
+    ast_sym2_esc!(expr)
+    if use_broadcast
+        dummyconstr = Expr(:call, :(.==), expr, 0)
+    else
+        dummyconstr = Expr(:call, :(==), expr, 0)
+    end
+    mmp = esc(mp)
+    mvar = esc(var)
+    return quote
+        model = $(mmp).emp.model_ds
+        cref = @constraint model $dummyconstr
+        gidx = addequ!($mmp, cref)
+        if (gidx isa Array)
+            @assert length(gidx) == length($mvar)
+            for i=1:length(gidx)
+                $(mmp).matching[$(mvar)[i].col] = gidx[i]
+            end
+        else
+            $(mmp).matching[$(esc(var)).col] = gidx
+        end
+        cref
     end
 end
 
-function vipair(mp::MathPrgm, expr::Vector, var::JuMP.JuMPArray)
-    @assert length(expr) == length(var)
-    for i in 1:length(var)
-        vipair(mp, expr[i], var[i])
-    end
-end
-
-macro @vipair(mp::MathPrgm, expr, var::JuMP.Variable)
-    cref, eidx = @constraintFromExprMP(mp, expr)
-    mp.matching[var.col] = eidx
-    cref
-end
-
-macro @vipair(mp::MathPrgm, expr::Vector, var::Vector{JuMP.Variable})
-    @assert length(expr) == length(var)
-    for i in 1:length(var)
-        vipair(mp, expr[i], var[i])
-    end
-end
-
-macro @vipair(mp::MathPrgm, expr::Vector, var::JuMP.JuMPArray)
-    @assert length(expr) == length(var)
-    for i in 1:length(var)
-        vipair(mp, expr[i], var[i])
-    end
-end
-
+#macro vipair(mp, expr, var)
+#    @assert length(expr) == length(var)
+#    for i in 1:length(var)
+#        vipair(mp, expr[i], var[i])
+#    end
+#end
+#
+#macro vipair(mp, expr, var)
+#    @assert length(expr) == length(var)
+#    for i in 1:length(var)
+#        vipair(mp, expr[i], var[i])
+#    end
+#end
+#
 """
     @NLvipair(mp, expr, var)
 
