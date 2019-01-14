@@ -1,5 +1,5 @@
 using JuMP, EMP, ReSHOP
-using Base.Test
+using Compat.Test
 
 # Data is from  ``Data analysis recipes: Fitting a model to data'' by Hogg, Bovy & Lang
 # available on https://arxiv.org/abs/1008.4686.

@@ -25,14 +25,14 @@ ag = [MathPrgm(ctx) for i in 1:n]
 
 EquilibriumProblem(ctx, ag)
 
-@variable(jump_model, x[i=1:n] >= 0)
+@variable(jump_model, x[1:n] >= 0)
 
 # Add the variable to the MP
 for i in 1:n
     addvar!(ag[i], x[i])
 end
 
-constr = Array{Any}(n, 2)
+constr = Array{Any}(nothing, n, 2)
 
 for i in 1:n
     @objectiveMP(ag[i], :Min, (c[1, i] + c[2, i]*x[i])*x[i] - (d1 - d2*sum(x[j] for j in 1:n))*x[i])

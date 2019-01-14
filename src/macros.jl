@@ -12,6 +12,11 @@ end
 
 function ast_sym2_esc!(ast_node, skipsym=Vector{Symbol}(undef,0))
 #    println("ast node is $(ast_node)")
+    # TODO(xhub) move thus into a seperate function that would get called first
+    if (typeof(ast_node) == Symbol)
+        ast_node = esc(ast_node)
+        return
+    end
     if (ast_node.head == :call || ast_node.head == :callmacro)
         s=2
     elseif (ast_node.head == :generator)
@@ -21,7 +26,15 @@ function ast_sym2_esc!(ast_node, skipsym=Vector{Symbol}(undef,0))
         push!(skipsym, ast_node.args[2].args[1])
 #        println("new skipsym $(skipsym)")
         # now visit ast_node.args[1] and ast_node.args[2].args[2] (i=1:N)
+        if (typeof(ast_node.args[1]) != Expr)
+            dump(ast_node)
+            error("in ast_sym2_esc")
+        end
         ast_sym2_esc!(ast_node.args[1], skipsym)
+        if (typeof(ast_node.args[2].args[2]) != Expr)
+            dump(ast_node.args[2])
+            error("in ast_sym2_esc")
+        end
         ast_sym2_esc!(ast_node.args[2].args[2], skipsym)
         return
     else
@@ -71,7 +84,7 @@ macro variableMP(mp, args...)
     len = length(args)
 
     #ar1 = :($(esc(args[1])))
-    dump(args)
+    #dump(args)
 
     ar1 = args[1]
     if (typeof(ar1) == Symbol)
@@ -80,7 +93,7 @@ macro variableMP(mp, args...)
         # This is the case there we have var[...]
 
         varname = esc(ar1.args[1])
-        ast_sum_esc!(ar1.args)
+        ast_sym2_esc!(ar1.args[2])
     elseif (ar1.head == :call || ar1.head == :comparison)
         # This is the case there we have var >= 0 or var[...] >= 0
         if (ar1.head == :comparison)
@@ -110,7 +123,7 @@ macro variableMP(mp, args...)
         error("Could not parse variable declaration $(ar1); please file a bug report at https://github.com/xhub/EMP.jl/issues/new")
     end
 
-    dump(args)
+    #dump(args)
     return quote
         mmp = $(esc(mp)).emp.model_ds
         #varname = $(esc(args[1]))
@@ -166,12 +179,15 @@ end
 Add a linear objective to a mathematical programm. Sense is either `:Min` or `:Max`.
 """
 macro objectiveMP(mp, sense, expr)
+    ast_sym2_esc!(expr)
+    dummyconstr = Expr(:call, :(==), expr, 0)
+    mmp = esc(mp)
     return quote
-        mmp = $(esc(mp)).emp.model_ds
-        cref = @constraint mmp $expr == 0
-        gidx = addequ!($(esc(mp)), cref)
-        $(esc(mp)).objequ = gidx
-        $(esc(mp)).sense = $(esc(sense))
+        model = $(mmp).emp.model_ds
+        cref = @constraint model $dummyconstr
+        gidx = addequ!($mmp, cref)
+        $(mmp).objequ = gidx
+        $(mmp).sense = $(esc(sense))
         cref
     end
 end
@@ -198,6 +214,7 @@ end
 Add a linear constraint (with a identifier `name`) to a mathematical programm
 """
 macro constraintMP(mp, name, expr)
+    ast_sym2_esc!(name)
     ast_args_esc!(expr.args)
     return quote
         mmp = $(esc(mp))
@@ -230,6 +247,7 @@ end
 Add a nonlinear constraint (with a identifier `name`) to a mathematical programm
 """
 macro NLconstraintMP(mp, name, expr)
+    ast_sym2_esc!(name)
     ast_sym2_esc!(expr)
     return quote
         mmp = $(esc(mp))
@@ -272,8 +290,6 @@ Or
 #end
 
 macro vipair(mp, expr, var)
-    dump(expr, maxdepth=8)
-    println(expr.head)
     if (expr.head == :vect || expr.head == :generator || expr.head == :comprehension)
         use_broadcast = true
     else

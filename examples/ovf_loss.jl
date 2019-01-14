@@ -1,9 +1,13 @@
 # Data is from  ``Data analysis recipes: Fitting a model to data'' by Hogg, Bovy & Lang
 # available on https://arxiv.org/abs/1008.4686.
 
-if !isdefined(:versions); versions = [1] end
-if !isdefined(:penalty_names); penalty_names = ["huber"] end
-if !isdefined(:ovf_formulations); ovf_formulations = ["equilibrium"] end
+if !@isdefined(versions); versions = [1] end
+if !@isdefined(penalty_names); penalty_names = ["huber"] end
+if !@isdefined(ovf_formulations); ovf_formulations = ["equilibrium"] end
+
+if VERSION >= v"0.7"
+    using DelimitedFiles
+end
 
 N = length(y)
 
@@ -133,7 +137,7 @@ file_ref = readdlm(joinpath(cmp_dir, "mcp_" * penalty_name * "_v1_fit.out"))
 @test isapprox(getvalue(d), unknown_ref[2], rtol=1e-4)
 @test isapprox(getvalue(fit), file_ref[1:N], rtol=1e-4)
 
-contains(penalty_name, "soft_hinge") && continue
+occursin("soft_hinge", penalty_name) && continue
 
 @test isapprox(getvalue(loss_var), unknown_ref[3], rtol=1e-4)
 #@test isapprox(getobjectivevalue(m), unknown_ref[3], rtol=1e-4)

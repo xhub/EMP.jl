@@ -123,17 +123,14 @@ include("helpers.jl")
 Add a variable to a Mathematical Programm
 """
 function addvar!(mp::MathPrgm, var::JuMP.Variable)
-    println("In addvar!(mp::MathPrgm, var::JuMP.Variable) with arg $var")
     push!(mp.vars, var.col)
 end
 
 function addvar!(mp::MathPrgm, var::Array{JuMP.Variable})
-    println("In addvar!(mp::MathPrgm, var::Array{JuMP.Variable}) with arg $var")
     map(x -> addvar!(mp, x), flatten(var))
 end
 
 function addvar!(mp::MathPrgm, var::JuMP.JuMPArray)
-    println("In addvar!(mp::MathPrgm, var::JuMP.JuMPArray{JuMP.Variable, 1, Tuple{Int64}}) with arg $var")
     map(x-> addvar!(mp, x), values(var))
 end
 

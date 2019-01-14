@@ -1,12 +1,12 @@
 # Data is from  ``Data analysis recipes: Fitting a model to data'' by Hogg, Bovy & Lang
 # available on https://arxiv.org/abs/1008.4686.
 
-if !isdefined(:penalty_names); penalty_names = ["huber"] end
-if !isdefined(:ovf_formulations); ovf_formulations = ["equilibrium"] end
+if !@isdefined(penalty_names); penalty_names = ["huber"] end
+if !@isdefined(ovf_formulations); ovf_formulations = ["equilibrium"] end
 
 @testset "Equilibrium loss test: penalty = $penalty_name; ovf_formulation = $ovf_formulation" for penalty_name in penalty_names, ovf_formulation in ovf_formulations
 
-  solver = ReSHOPSolver("", Dict{String,Any}([("ovf_formulation", ovf_formulation)]))
+solver = ReSHOPSolver("", Dict{String,Any}([("ovf_formulation", ovf_formulation)]))
 
 m = JuMP.Model(solver=solver)
 
@@ -103,7 +103,7 @@ file_ref = readdlm(joinpath(cmp_dir, "mcp_" * penalty_name * "_v1_fit.out"))
 
 @test solve(m) == :Optimal
 
-contains(penalty_name, "hinge") && continue
+occursin("hinge", penalty_name) && continue
 
 @test isapprox(getvalue(c1), [unknown_ref[1]], rtol=1e-4)
 @test isapprox(getvalue(d1), unknown_ref[2], rtol=1e-4)

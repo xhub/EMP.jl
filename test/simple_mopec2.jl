@@ -31,8 +31,8 @@ JuMP.setvalue(x[1:n], ones(n))
 
 @test solveEMP(mopec) == :Optimal
 
-@test isapprox(getvalue(x), [3,2,0], atol=1e-4)
-@test isapprox(getvalue(p), [6,1,5], atol=1e-4)
+@test isapprox(getvalue(x)[:], [3,2,0], atol=1e-4)
+@test isapprox(getvalue(p)[:], [6,1,5], atol=1e-4)
 @test isapprox(getvalue(y), 3, atol=1e-4)
 
 #@test isapprox(getobjectivevalue(m),5326.851310161077, atol=1e-5)
