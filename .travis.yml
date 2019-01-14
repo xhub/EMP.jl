@@ -43,7 +43,7 @@ env:
 ## uncomment the following lines to override the default test script
 script:
   - julia -e 'VERSION >= v"0.7" && import Pkg; Pkg.add("Compat")'
-  - julia -e 'using Compat.Pkg; Pkg.clone("https://github.com/xhub/JuMP.jl#release-0.18"); Pkg.clone("https://github.com/xhub/ReSHOP.jl"); Pkg.build("ReSHOP"); Pkg.clone(pwd()); Pkg.build("EMP")'
+  - julia -e 'using Compat.Pkg; Pkg.add("https://github.com/xhub/JuMP.jl#release-0.18"); Pkg.clone("https://github.com/xhub/ReSHOP.jl"); Pkg.build("ReSHOP"); Pkg.clone(pwd()); Pkg.build("EMP")'
   - julia -e 'using Compat.Pkg; Pkg.test("EMP"; coverage=true)'
 
 after_success:
