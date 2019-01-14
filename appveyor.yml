@@ -1,16 +1,31 @@
 environment:
   matrix:
-    #  - JULIA_URL: "https://julialang-s3.julialang.org/bin/winnt/x86/0.6/julia-0.6-latest-win32.exe"
+    - JULIA_URL: "https://julialang-s3.julialang.org/bin/winnt/x86/0.6/julia-0.6-latest-win32.exe"
+      GAMS_URL: "https://d37drm4t2jghv5.cloudfront.net/distributions/25.1.2/windows/windows_x86_32.exe"
+
     - JULIA_URL: "https://julialang-s3.julialang.org/bin/winnt/x64/0.6/julia-0.6-latest-win64.exe"
-    #  - JULIA_URL: "https://julialang-s3.julialang.org/bin/winnt/x86/0.6/julia-0.6-latest-win32.exe"
+      GAMS_URL: "https://d37drm4t2jghv5.cloudfront.net/distributions/25.1.2/windows/windows_x64_64.exe"
+
+    - JULIA_URL: "https://julialang-s3.julialang.org/bin/winnt/x86/0.7/julia-0.7-latest-win32.exe"
+      GAMS_URL: "https://d37drm4t2jghv5.cloudfront.net/distributions/25.1.2/windows/windows_x86_32.exe"
+
     - JULIA_URL: "https://julialang-s3.julialang.org/bin/winnt/x64/0.7/julia-0.7-latest-win64.exe"
+      GAMS_URL: "https://d37drm4t2jghv5.cloudfront.net/distributions/25.1.2/windows/windows_x64_64.exe"
+
+    - JULIA_URL: "https://julialang-s3.julialang.org/bin/winnt/x86/1.0/julia-1.0-latest-win32.exe"
+      GAMS_URL: "https://d37drm4t2jghv5.cloudfront.net/distributions/25.1.2/windows/windows_x86_32.exe"
+
+    - JULIA_URL: "https://julialang-s3.julialang.org/bin/winnt/x64/1.0/julia-1.0-latest-win64.exe"
+      GAMS_URL: "https://d37drm4t2jghv5.cloudfront.net/distributions/25.1.2/windows/windows_x64_64.exe"
+
   PATH: 'C:\projects\gams;%PATH%'
 
 ## uncomment the following lines to allow failures on nightly julia
 ## (tests will run but not make your overall status red)
-matrix:
-  allow_failures:
-    - JULIA_URL: "https://julialang-s3.julialang.org/bin/winnt/x64/0.7/julia-0.7-latest-win64.exe"
+#matrix:
+#  allow_failures:
+#    - JULIA_URL: "https://julialang-s3.julialang.org/bin/winnt/x64/0.7/julia-0.7-latest-win64.exe"
+#    - JULIA_URL: "https://julialang-s3.julialang.org/bin/winnt/x86/0.7/julia-0.7-latest-win32.exe"
 #  - JULIA_URL: "https://julialangnightlies-s3.julialang.org/bin/winnt/x86/julia-latest-win32.exe"
 #  - JULIA_URL: "https://julialangnightlies-s3.julialang.org/bin/winnt/x64/julia-latest-win64.exe"
 
@@ -43,15 +58,17 @@ install:
   - C:\projects\julia-binary.exe /S /D=C:\projects\julia
 
   - ps: (new-object net.webclient).DownloadFile(
-      "https://d37drm4t2jghv5.cloudfront.net/distributions/25.1.2/windows/windows_x64_64.exe",
-      "C:\projects\windows_x64_64.exe")
+        $env:GAMS_URL,
+        "C:\projects\windows_x64_64.exe")
   - C:\projects\windows_x64_64.exe /VERYSILENT /SP- /SUPPESSMSGBOXES /DIR="C:\projects\gams"
 
 build_script:
 # Need to convert from shallow to complete for Pkg.clone to work
   - IF EXIST .git\shallow (git fetch --unshallow)
-  - C:\projects\julia\bin\julia -e "versioninfo(); Pkg.clone(\"https://github.com/xhub/ReSHOP.jl\");
+  - C:\projects\julia\bin\julia -e "VERSION >= v\"0.7\" && import Pkg; Pkg.add(\"Compat\")"
+  - C:\projects\julia\bin\julia -e "VERSION >= v\"0.7\" && using InteractiveUtils; versioninfo()"
+  - C:\projects\julia\bin\julia -e "using Compat.Pkg; Pkg.clone(\"https://github.com/xhub/ReSHOP.jl\");
       Pkg.build(\"ReSHOP\"); Pkg.clone(pwd(), \"EMP\"); Pkg.build(\"EMP\")"
 
 test_script:
-  - C:\projects\julia\bin\julia -e "Pkg.test(\"EMP\")"
+  - C:\projects\julia\bin\julia -e "using Compat.Pkg; Pkg.test(\"EMP\")"
