@@ -1,8 +1,8 @@
 # Data is from  ``Data analysis recipes: Fitting a model to data'' by Hogg, Bovy & Lang
 # available on https://arxiv.org/abs/1008.4686.
 
-if !@isdefined(penalty_names); penalty_names = ["huber"] end
-if !@isdefined(ovf_formulations); ovf_formulations = ["equilibrium"] end
+if !isdef(:penalty_names); penalty_names = ["huber"] end
+if !isdef(:ovf_formulations); ovf_formulations = ["equilibrium"] end
 
 @testset "Equilibrium loss test: penalty = $penalty_name; ovf_formulation = $ovf_formulation" for penalty_name in penalty_names, ovf_formulation in ovf_formulations
 

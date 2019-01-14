@@ -32,7 +32,7 @@ for i in 1:n
     addvar!(ag[i], x[i])
 end
 
-constr = Array{Any}(nothing, n, 2)
+constr = Array{Any}(undef, n, 2)
 
 for i in 1:n
     @objectiveMP(ag[i], :Min, (c[1, i] + c[2, i]*x[i])*x[i] - (d1 - d2*sum(x[j] for j in 1:n))*x[i])

@@ -5,6 +5,10 @@ module EMP
 using JuMP
 using ReSHOP
 
+#for 0.6
+using Compat.Iterators.flatten
+using Compat.undef
+
 if VERSION >= v"0.7"
     # quickfix for Nullable
     using Nullables

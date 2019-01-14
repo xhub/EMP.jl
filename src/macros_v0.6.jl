@@ -20,11 +20,11 @@ macro variableMP(mp, args...)
     # TODO(xhub) fix this with proper syntax
     # dummyconstr = Expr(:call, @variable, $(mp).emp.m, $(esc(args[1])))
     #then extend the arguments
-    len = length(args)
+    local len = length(args)
     if len == 0
         code = :( v = @eval @variable $(mp).emp.model_ds )
     elseif len == 1
-        code = :( v = @eval @variable $(mp).emp.model_ds $(esc(args[1])) )
+        code = :( v = @variable $(mp).emp.model_ds $(esc(args[1])) )
     elseif len == 2
         code = :( v = @eval @variable $(mp).emp.model_ds $(esc(args[2])) $(esc(args[3])) )
     elseif len == 3
@@ -34,7 +34,7 @@ macro variableMP(mp, args...)
     elseif len == 6
         code = :( v = @eval @variable $(mp).emp.model_ds $(esc(args[2])) $(esc(args[3])) $(esc(args[4])) $(esc(args[5])) $(esc(args[6])) )
     end
-    return quote
+    quote
         if $len > 6
             error("unsupported syntax $(esc(args[2]))")
         end
@@ -182,6 +182,12 @@ function vipair(mp::MathPrgm, expr::Vector, var::Vector{JuMP.Variable})
     @assert length(expr) == length(var)
     for i in 1:length(var)
         vipair(mp, expr[i], var[i])
+    end
+end
+
+macro vipair(mp, expr, var)
+    quote
+        return vipair($(esc(mp)), $(esc(expr)), $(esc(var)))
     end
 end
 
