@@ -67,7 +67,7 @@ build_script:
   - IF EXIST .git\shallow (git fetch --unshallow)
   - C:\projects\julia\bin\julia -e "VERSION >= v\"0.7\" && import Pkg; Pkg.add(\"Compat\")"
   - C:\projects\julia\bin\julia -e "VERSION >= v\"0.7\" && using InteractiveUtils; versioninfo()"
-  - C:\projects\julia\bin\julia -e "using Compat.Pkg; Pkg.add(\"https://github.com/xhub/JuMP.jl#release-0.18\"); Pkg.clone(\"https://github.com/xhub/ReSHOP.jl\");
+  - C:\projects\julia\bin\julia -e "using Compat.Pkg; Pkg.add(PackageSpec(url=\"https://github.com/xhub/JuMP.jl\", rev=\"release-0.18\")); Pkg.clone(\"https://github.com/xhub/ReSHOP.jl\");
       Pkg.build(\"ReSHOP\"); Pkg.clone(pwd(), \"EMP\"); Pkg.build(\"EMP\")"
 
 test_script:
