@@ -6,12 +6,13 @@ using JuMP
 using ReSHOP
 
 #for 0.6
-using Compat.Iterators.flatten
-using Compat.undef
 
 if VERSION >= v"0.7"
     # quickfix for Nullable
     using Nullables
+else
+    using Compat.Iterators.flatten
+    using Compat
 end
 
 export @variableMP, @objectiveMP, @NLobjectiveMP, @constraintMP, @NLconstraintMP, @vipair, @NLvipair, solveEMP, _solveEMP, MathPrgm, EquilibriumProblem, BilevelProblem, addvar!, addequ!, addovf!, getsolution, status, get_solve_result, get_solve_result_num, get_model_result, get_model_result_num, get_solve_message, get_solve_exitcode, solve, getobjval

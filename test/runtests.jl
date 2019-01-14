@@ -1,5 +1,5 @@
-using Compat.occursin
-using Compat.undef
+#for undef and occursin
+using Compat
 using Compat.Test
 
 #examples_path = joinpath(dirname(dirname(@__FILE__)), "examples")
