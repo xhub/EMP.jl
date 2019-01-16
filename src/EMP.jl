@@ -243,17 +243,17 @@ function _solveEMP(emp::EMP.Model)
 
     reshop_emp = ReSHOP.emp_create(ctx)
 
+    if (length(emp.mps) > 0)
+        ReSHOP.reshop_set_modeltype(ctx, ReSHOP.emp)
+    else
+        ReSHOP.reshop_set_modeltype(reshop_model)
+    end
+
     # Define the EMP tree
     emptree(emp, reshop_emp, ctx)
 
     for ovf in emp.ovfs
         ReSHOP.reshop_ovf(reshop_emp, ovf)
-    end
-
-    if (length(emp.mps) > 0)
-        ReSHOP.reshop_set_modeltype(ctx, ReSHOP.emp)
-    else
-        ReSHOP.reshop_set_modeltype(reshop_model)
     end
 
     setvarnames(ctx, emp.model_ds)
