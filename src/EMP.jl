@@ -131,12 +131,24 @@ function addvar!(mp::MathPrgm, var::JuMP.Variable)
     push!(mp.vars, var.col)
 end
 
-function addvar!(mp::MathPrgm, var::Array{JuMP.Variable})
-    map(x -> addvar!(mp, x), flatten(var))
-end
+#function addvar!(mp::MathPrgm, var::Array{JuMP.Variable})
+#    map(x -> addvar!(mp, x), flatten(var))
+#end
+#
+#function addvar!(mp::MathPrgm, var::JuMP.JuMPArray)
+#    map(x-> addvar!(mp, x), values(var))
+#end
+#
+#function addvar!(mp::MathPrgm, var::JuMP.JuMPDict)
+#    map(x-> addvar!(mp, x), values(var))
+#end
 
-function addvar!(mp::MathPrgm, var::JuMP.JuMPArray)
-    map(x-> addvar!(mp, x), values(var))
+function addvar!(mp::MathPrgm, var)
+    if applicable(values, var)
+        map(x -> addvar!(mp, x), values(var))
+    else
+        throw("Unknown variable of type $(typeof(var)) for argument $var")
+    end
 end
 
 """
@@ -150,17 +162,17 @@ function addequ!(mp::MathPrgm, eqn::JuMP.ConstraintRef)
     return gidx
 end
 
-function addequ!(mp::MathPrgm, eqn::Vector{ConstraintRef{M,C}}) where {M <: JuMP.AbstractModel, C <: JuMP.AbstractConstraint}
-    map(x -> addequ!(mp, x), eqn)
-end
+#function addequ!(mp::MathPrgm, eqn::Vector{ConstraintRef{M,C}}) where {M <: JuMP.AbstractModel, C <: JuMP.AbstractConstraint}
+#    map(x -> addequ!(mp, x), eqn)
+#end
 
-function addequ!(mp::MathPrgm, eqn::Vector{JuMP.ConstraintRef})
-    map(x -> addequ!(mp, x), eqn)
-end
+#function addequ!(mp::MathPrgm, eqn::Vector{JuMP.ConstraintRef})
+#    map(x -> addequ!(mp, x), eqn)
+#end
 
 function addequ!(mp::MathPrgm, eqn)
-    if isa(eqn, Array)
-        map(x -> addequ!(mp, x), eqn)
+    if applicable(values, eqn)
+        map(x -> addequ!(mp, x), values(eqn))
     else
         throw("Unknown equation type $(typeof(eqn)) for argument $eqn")
     end

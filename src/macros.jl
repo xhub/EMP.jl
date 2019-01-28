@@ -10,14 +10,40 @@ function ast_sym_esc!(array_args)
     end
 end
 
+function ast_lookahead_loop_vars(ast_node)
+    if (isa(ast_node, Array))
+        return union(flatten(map(ast_lookahead_loop_vars, ast_node)))
+    elseif (!isa(ast_node, Expr))
+        return Vector{Symbol}(undef,0)
+    end
+
+    if (ast_node.head == :kw || ast_node.head == :generator || ast_node.head == :(=))
+        return [ast_node.args[1]]
+    end
+    return Vector{Symbol}(undef,0)
+end
+
 function ast_sym2_esc!(ast_node, skipsym=Vector{Symbol}(undef,0))
 #    println("ast node is $(ast_node)")
     # TODO(xhub) move thus into a seperate function that would get called first
-    if (typeof(ast_node) == Symbol)
+    println("skipsym = $skipsym")
+    println("$(typeof(ast_node))")
+    if (isa(ast_node, Symbol))
+        println("symbol detected: $ast_node")
         ast_node = esc(ast_node)
+        println("$ast_node")
+        return ast_node
+    elseif (isa(ast_node, Array))
+        return map(x -> ast_sym2_esc!(x, skipsym), ast_node)
+    elseif (!isa(ast_node, Expr))
         return
     end
-    if (ast_node.head == :call || ast_node.head == :callmacro)
+
+    # is we have those instances, do not quote
+    if (ast_node.head == :call || ast_node.head == :callmacro || ast_node.head == :kw || ast_node.head == :(=))
+        if (ast_node.head == :kw)
+            push!(skipsym, ast_node.args[1])
+        end
         s=2
     elseif (ast_node.head == :generator)
         # we have faith here that the iterator has a structure like
@@ -36,10 +62,11 @@ function ast_sym2_esc!(ast_node, skipsym=Vector{Symbol}(undef,0))
             error("in ast_sym2_esc")
         end
         ast_sym2_esc!(ast_node.args[2].args[2], skipsym)
-        return
+        return ast_node
     else
         s=1
     end
+
     for i=s:length(ast_node.args)
 #        println("skipsym is $(skipsym[:])")
         if (typeof(ast_node.args[i]) == Symbol && !(ast_node.args[i] in skipsym))
@@ -49,6 +76,7 @@ function ast_sym2_esc!(ast_node, skipsym=Vector{Symbol}(undef,0))
             ast_sym2_esc!(ast_node.args[i], skipsym)
         end
     end
+    return ast_node
 end
 
 function ast_args_esc!(array_args)
@@ -57,6 +85,42 @@ function ast_args_esc!(array_args)
             array_args[i] = esc(array_args[i])
         end
     end
+end
+
+function ast_var_bracket_esc!(expr)
+    if expr.head == :kw
+        # We want to skip expr.args[1] since it is a loop variable
+        ast_sym2_esc!(expr.args[2])
+    else
+        ast_sym2_esc!(expr)
+    end
+end
+
+function esc_var!(ex)
+    skipsym=Vector{Symbol}(undef,0)
+    if (isa(ex, Symbol))
+        varname = esc(ex)
+    elseif (!isa(ex, Expr))
+        error("Could not parse variable declaration $(ex); please file a bug report at https://github.com/xhub/EMP.jl/issues/new")
+    elseif (ex.head == :ref || ex.head == :typed_vcat)
+        # This is the case there we have var[...] or var[...; cond]
+        # We can have var[i=1:3] or var[1:3]
+        # - case var[1:3]: ex.args[2].head is call; ex.args[2].args is
+        #   Array{Any}((3,))
+        #     1: Symbol :
+        #     2: Int64 1
+        #     3: Int64 3
+        #
+        # case var[i=1:3]: ex.args[2].head is kw
+
+        varname = esc(ex.args[1])
+        # We want to skip escaping the inner loop var
+        skipsym = ast_lookahead_loop_vars(ex.args[2:end])
+        for i=2:length(ex.args)
+            ex.args[i] = ast_sym2_esc!(ex.args[i], skipsym)
+        end
+    end
+    return varname, skipsym
 end
 
 """
@@ -74,14 +138,9 @@ macro variableMP(mp, args...)
     kwsymbol = VERSION < v"0.6.0-dev.1934" ? :kw : :(=) # changed by julia PR #19868
     append!(kwargs.args, collect(Iterators.filter(x -> Meta.isexpr(x, kwsymbol), collect(args)))) # comma separated
     args = collect(Iterators.filter(x -> !Meta.isexpr(x, kwsymbol), collect(args)))
-    if length(kwargs.args) > 0
-        error("Please do not use keyword argument in @variableMP")
-    end
-
     # TODO(xhub) fix this with proper syntax
     # dummyconstr = Expr(:call, @variable, $(mp).emp.m, $(esc(args[1])))
     #then extend the arguments
-    len = length(args)
 
     #ar1 = :($(esc(args[1])))
     #dump(args)
@@ -89,13 +148,22 @@ macro variableMP(mp, args...)
     ar1 = args[1]
     if (typeof(ar1) == Symbol)
         varname = esc(ar1)
-    elseif (ar1.head == :ref)
+        skipsym = Vector{Symbol}(undef,0)
+    elseif (ar1.head == :ref || ar1.head == :typed_vcat)
         # This is the case there we have var[...]
+        # We can have var[i=1:3] or var[1:3]
+        # - case var[1:3]: ar1.args[2].head is call; ar1.args[2].args is
+        #   Array{Any}((3,))
+        #     1: Symbol :
+        #     2: Int64 1
+        #     3: Int64 3
+        #
+        # case var[i=1:3]: ar1.args[2].head is kw
 
-        varname = esc(ar1.args[1])
-        ast_sym2_esc!(ar1.args[2])
+        varname, skipsym = esc_var!(ar1)
+        # We want to skip escaping the inner loop var
     elseif (ar1.head == :call || ar1.head == :comparison)
-        # This is the case there we have var >= 0 or var[...] >= 0
+        # This is the case there we have var >= lb or ub >= var[...] >= lb
         if (ar1.head == :comparison)
             posvar = 3
         else
@@ -106,32 +174,38 @@ macro variableMP(mp, args...)
             end
         end
 
-        if (typeof(ar1.args[posvar]) == Symbol)
-            varname = esc(ar1.args[posvar])
-        elseif (typeof(ar1.args[posvar]) == Expr)
-            if (typeof(ar1.args[posvar].args[1]) != Symbol)
-                error("Could not parse variable declaration $(ar1); please file a bug report at https://github.com/xhub/EMP.jl/issues/new")
-            end
-            varname = esc(ar1.args[posvar].args[1])
-
-            #now escape some variables in the indices
-            ast_sym_esc!(ar1.args[posvar].args[2:end])
-        else
-            error("Could not parse variable declaration $(ar1); please file a bug report at https://github.com/xhub/EMP.jl/issues/new")
-        end
+        varname, skipsym = esc_var!(ar1.args[posvar])
+#        if (typeof(ar1.args[posvar]) == Symbol)
+#            varname = esc(ar1.args[posvar])
+#        elseif (typeof(ar1.args[posvar]) == Expr)
+#            if (typeof(ar1.args[posvar].args[1]) != Symbol)
+#                error("Could not parse variable declaration $(ar1); please file a bug report at https://github.com/xhub/EMP.jl/issues/new")
+#            end
+#            varname = esc(ar1.args[posvar].args[1])
+#
+#            #now escape some variables in the indices
+#            ast_sym_esc!(ar1.args[posvar].args[2:end])
+#        else
+#            error("Could not parse variable declaration $(ar1); please file a bug report at https://github.com/xhub/EMP.jl/issues/new")
+#        end
     else
         error("Could not parse variable declaration $(ar1); please file a bug report at https://github.com/xhub/EMP.jl/issues/new")
     end
 
-    #dump(args)
+    jump_call = :(JuMP.@variable mmp $args)
+
+    if length(kwargs.args) > 0
+        ast_sym2_esc!(kwargs, skipsym)
+        append!(jump_call.args, kwargs.args)
+    end
+
+    dump(args)
     return quote
         mmp = $(esc(mp)).emp.model_ds
         #varname = $(esc(args[1]))
-        if $len > 6
-            error("unsupported syntax $(esc(args[2]))")
-        end
         # TODO: use eval(Expr(:call, variable, ...))
-        $varname = @variable mmp $args
+        #$varname = @variable(mmp, $args)
+        $varname = $jump_call
         addvar!($(esc(mp)), $varname)
         $varname
     end
