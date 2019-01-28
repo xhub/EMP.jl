@@ -24,14 +24,9 @@ function ast_lookahead_loop_vars(ast_node)
 end
 
 function ast_sym2_esc!(ast_node, skipsym=Vector{Symbol}(undef,0))
-#    println("ast node is $(ast_node)")
     # TODO(xhub) move thus into a seperate function that would get called first
-    println("skipsym = $skipsym")
-    println("$(typeof(ast_node))")
     if (isa(ast_node, Symbol))
-        println("symbol detected: $ast_node")
         ast_node = esc(ast_node)
-        println("$ast_node")
         return ast_node
     elseif (isa(ast_node, Array))
         return map(x -> ast_sym2_esc!(x, skipsym), ast_node)
@@ -48,9 +43,7 @@ function ast_sym2_esc!(ast_node, skipsym=Vector{Symbol}(undef,0))
     elseif (ast_node.head == :generator)
         # we have faith here that the iterator has a structure like
         # ast_node.args[2] ~ i=1:/N
-#        println("skipping generator var $(ast_node.args[2].args[1])")
         push!(skipsym, ast_node.args[2].args[1])
-#        println("new skipsym $(skipsym)")
         # now visit ast_node.args[1] and ast_node.args[2].args[2] (i=1:N)
         if (typeof(ast_node.args[1]) != Expr)
             dump(ast_node)
@@ -68,9 +61,7 @@ function ast_sym2_esc!(ast_node, skipsym=Vector{Symbol}(undef,0))
     end
 
     for i=s:length(ast_node.args)
-#        println("skipsym is $(skipsym[:])")
         if (typeof(ast_node.args[i]) == Symbol && !(ast_node.args[i] in skipsym))
-#            println("escaping $(ast_node.args[i])")
             ast_node.args[i] = esc(ast_node.args[i])
         elseif (typeof(ast_node.args[i]) == Expr)
             ast_sym2_esc!(ast_node.args[i], skipsym)
@@ -123,6 +114,45 @@ function esc_var!(ex)
     return varname, skipsym
 end
 
+function esc_jump_id!(ex)
+    if (typeof(ex) == Symbol)
+        varname = esc(ex)
+        ex = esc(ex)
+        skipsym = Vector{Symbol}(undef,0)
+    elseif (ex.head == :ref || ex.head == :typed_vcat)
+        # This is the case there we have var[...]
+        # We can have var[i=1:3] or var[1:3]
+        # - case var[1:3]: ex.args[2].head is call; ex.args[2].args is
+        #   Array{Any}((3,))
+        #     1: Symbol :
+        #     2: Int64 1
+        #     3: Int64 3
+        #
+        # case var[i=1:3]: ex.args[2].head is kw
+
+        varname, skipsym = esc_var!(ex)
+        # We want to skip escaping the inner loop var
+    elseif (ex.head == :call || ex.head == :comparison)
+        # This is the case there we have var >= lb or ub >= var[...] >= lb
+        if (ex.head == :comparison)
+            posvar = 3
+        else
+            if (length(ex.args) == 3)
+                posvar = 2
+            else
+                error("Could not parse variable declaration $(ex); please file a bug report at https://github.com/xhub/EMP.jl/issues/new")
+            end
+        end
+
+        varname, skipsym = esc_var!(ex.args[posvar])
+    else
+        error("Could not parse variable declaration $(ex); please file a bug report at https://github.com/xhub/EMP.jl/issues/new")
+    end
+
+    return varname, skipsym
+end
+
+
 """
 Add a variable to a Mathematical Programm. See JuMP `@variable` for examples
 """
@@ -142,56 +172,8 @@ macro variableMP(mp, args...)
     # dummyconstr = Expr(:call, @variable, $(mp).emp.m, $(esc(args[1])))
     #then extend the arguments
 
-    #ar1 = :($(esc(args[1])))
-    #dump(args)
-
     ar1 = args[1]
-    if (typeof(ar1) == Symbol)
-        varname = esc(ar1)
-        skipsym = Vector{Symbol}(undef,0)
-    elseif (ar1.head == :ref || ar1.head == :typed_vcat)
-        # This is the case there we have var[...]
-        # We can have var[i=1:3] or var[1:3]
-        # - case var[1:3]: ar1.args[2].head is call; ar1.args[2].args is
-        #   Array{Any}((3,))
-        #     1: Symbol :
-        #     2: Int64 1
-        #     3: Int64 3
-        #
-        # case var[i=1:3]: ar1.args[2].head is kw
-
-        varname, skipsym = esc_var!(ar1)
-        # We want to skip escaping the inner loop var
-    elseif (ar1.head == :call || ar1.head == :comparison)
-        # This is the case there we have var >= lb or ub >= var[...] >= lb
-        if (ar1.head == :comparison)
-            posvar = 3
-        else
-            if (length(ar1.args) == 3)
-                posvar = 2
-            else
-                error("Could not parse variable declaration $(ar1); please file a bug report at https://github.com/xhub/EMP.jl/issues/new")
-            end
-        end
-
-        varname, skipsym = esc_var!(ar1.args[posvar])
-#        if (typeof(ar1.args[posvar]) == Symbol)
-#            varname = esc(ar1.args[posvar])
-#        elseif (typeof(ar1.args[posvar]) == Expr)
-#            if (typeof(ar1.args[posvar].args[1]) != Symbol)
-#                error("Could not parse variable declaration $(ar1); please file a bug report at https://github.com/xhub/EMP.jl/issues/new")
-#            end
-#            varname = esc(ar1.args[posvar].args[1])
-#
-#            #now escape some variables in the indices
-#            ast_sym_esc!(ar1.args[posvar].args[2:end])
-#        else
-#            error("Could not parse variable declaration $(ar1); please file a bug report at https://github.com/xhub/EMP.jl/issues/new")
-#        end
-    else
-        error("Could not parse variable declaration $(ar1); please file a bug report at https://github.com/xhub/EMP.jl/issues/new")
-    end
-
+    varname, skipsym = esc_jump_id!(ar1)
     jump_call = :(JuMP.@variable mmp $args)
 
     if length(kwargs.args) > 0
@@ -199,12 +181,11 @@ macro variableMP(mp, args...)
         append!(jump_call.args, kwargs.args)
     end
 
-    dump(args)
+    # dump(args)
     return quote
         mmp = $(esc(mp)).emp.model_ds
         #varname = $(esc(args[1]))
         # TODO: use eval(Expr(:call, variable, ...))
-        #$varname = @variable(mmp, $args)
         $varname = $jump_call
         addvar!($(esc(mp)), $varname)
         $varname
@@ -288,8 +269,8 @@ end
 Add a linear constraint (with a identifier `name`) to a mathematical programm
 """
 macro constraintMP(mp, name, expr)
-    ast_sym2_esc!(name)
-    ast_args_esc!(expr.args)
+    equname, skipsym = esc_jump_id!(name)
+    ast_sym2_esc!(expr.args, skipsym)
     return quote
         mmp = $(esc(mp))
         model = mmp.emp.model_ds
@@ -321,8 +302,8 @@ end
 Add a nonlinear constraint (with a identifier `name`) to a mathematical programm
 """
 macro NLconstraintMP(mp, name, expr)
-    ast_sym2_esc!(name)
-    ast_sym2_esc!(expr)
+    equname, skipsym = esc_jump_id!(name)
+    ast_sym2_esc!(expr.args, skipsym)
     return quote
         mmp = $(esc(mp))
         model = mmp.emp.model_ds
