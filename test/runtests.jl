@@ -18,7 +18,11 @@ else
     end
 end
 
-include("variable.jl")
+# On the new macros are really robust
+if VERSION >= v"1.0.0"
+    include("variable.jl")
+end
+
 include("simple_mopec2.jl")
 include("gnep_river_basin.jl")
 include("ovf_loss_nl.jl")
