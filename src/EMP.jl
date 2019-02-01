@@ -295,7 +295,9 @@ function _solveEMP(emp::EMP.Model)
     end
 
     #    TODO(xhub) move that elsewhere
-#    ReSHOP.emp_delete(reshop_emp)
+    # This is left here for now, otherwise, we can't remove the test folder
+    # This also plugs a memleak on a context
+    ReSHOP.emp_delete(reshop_emp)
 end
 
 ###################################################################################################
