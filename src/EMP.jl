@@ -56,8 +56,7 @@ The solver argument is used to construct the ReSHOPSolver object.
 """
 function Model(; modeling_pkg = "JuMP", solver = "jams")
     if modeling_pkg == "JuMP"
-        solver_reshop = ReSHOP.ReSHOPSolver(solver)
-        model_ds = JuMP.Model(with_optimizer(ReSHOP.Optimizer; solver=solver))
+        model_ds = direct_model(ReSHOP.Optimizer(;solver=solver))
         emp = Model(model_ds, Vector{MathPrgm}(), Vector{Vector{MathPrgm}}(), nothing, Vector{Tuple{Symbol, Int}}(), Vector{OVF}())
     elseif modeling_pkg == "Convex"
         error("Convex.jl is WIP")

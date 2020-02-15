@@ -14,13 +14,29 @@ function setemp!(m, emp)
 end
 
 function setemp!(m::JuMP.Model, emp)
-    setemp_solver!(m.moi_backend.optimizer.model, emp)
+    #setemp_solver!(m.moi_backend.optimizer.model, emp)
+end
+
+function _getrealmoibackend(o::ReSHOP.Optimizer)
+    return o
+end
+
+function _getrealmoibackend(o::MOI.Bridges.AbstractBridgeOptimizer)
+    return o.model
+end
+
+function _getrealmoibackend(o::MOI.Utilities.CachingOptimizer)
+    return _getrealmoibackend(o.optimizer)
+end
+
+function _getrealmoibackend(o)
+    error("Unknown Optimizer of type $(typeof(o))")
 end
 
 function getReSHOPModel(emp::EMP.Model)
     jmodel = emp.model_ds
 
-    return jmodel.moi_backend.optimizer.model
+    return _getrealmoibackend(jmodel.moi_backend)
 end
 
 function _setvalues(m, x::Vector) error("_setvalues: unsupported type $(typeof(m))") end
