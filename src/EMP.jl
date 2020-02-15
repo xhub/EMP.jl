@@ -5,15 +5,8 @@ module EMP
 using JuMP
 using ReSHOP
 
-#for 0.6
-
-if VERSION >= v"0.7"
-    # quickfix for Nullable
-    using Nullables
-else
-    using Compat.Iterators.flatten
-    using Compat
-end
+using Compat
+using Base.Iterators
 
 export @variableMP, @objectiveMP, @NLobjectiveMP, @constraintMP, @NLconstraintMP, @vipair, @NLvipair, solveEMP, _solveEMP, MathPrgm, EquilibriumProblem, BilevelProblem, addvar!, addequ!, addovf!, getsolution, status, get_solve_result, get_solve_result_num, get_model_result, get_model_result_num, get_solve_message, get_solve_exitcode, solve, getobjval
 
@@ -38,9 +31,9 @@ mutable struct OVF
     name::String
     params::Dict{String,Any}
     # No idea how to enforce params to be a Dict{String,Any}
-    function OVF(v::JuMP.Variable, args::Vector{JuMP.Variable}, name::String, params::Dict)
-        args_idx = [arg.col for arg in args]
-        new(v.col, args_idx, name, params)
+    function OVF(v::JuMP.VariableRef, args::Vector{JuMP.VariableRef}, name::String, params::Dict)
+        args_idx = [arg.index.value for arg in args]
+        new(v.index.value, args_idx, name, params)
     end
 end
 
@@ -50,7 +43,7 @@ mutable struct Model
     model_ds
     mps::Vector{MathPrgm}
     equils::Vector{Vector{MathPrgm}}
-    root::Nullable{Union{MathPrgm, Vector{MathPrgm},Vector{Vector{MathPrgm}}}}
+    root::Union{Nothing,MathPrgm,Vector{MathPrgm},Vector{Vector{MathPrgm}}}
     equs::Vector{Tuple{Symbol, Int}}
     ovfs::Vector{OVF}
 end
@@ -64,8 +57,8 @@ The solver argument is used to construct the ReSHOPSolver object.
 function Model(; modeling_pkg = "JuMP", solver = "jams")
     if modeling_pkg == "JuMP"
         solver_reshop = ReSHOP.ReSHOPSolver(solver)
-        model_ds = JuMP.Model(solver=solver_reshop)
-        emp = Model(model_ds, Vector{MathPrgm}(), Vector{Vector{MathPrgm}}(), Nullable{Union{MathPrgm,Vector{MathPrgm},Vector{Vector{MathPrgm}}}}(), Vector{Tuple{Symbol, Int}}(), Vector{OVF}())
+        model_ds = JuMP.Model(with_optimizer(ReSHOP.Optimizer; solver=solver))
+        emp = Model(model_ds, Vector{MathPrgm}(), Vector{Vector{MathPrgm}}(), nothing, Vector{Tuple{Symbol, Int}}(), Vector{OVF}())
     elseif modeling_pkg == "Convex"
         error("Convex.jl is WIP")
     else
@@ -83,7 +76,7 @@ end
 Create an EMP master object and use the argument as the model data storage object
 """
 function Model(model_ds)
-    emp = Model(model_ds, Vector{MathPrgm}(), Vector{Vector{MathPrgm}}(), Nullable{Union{MathPrgm,Vector{MathPrgm},Vector{Vector{MathPrgm}}}}(), Vector{Tuple{Symbol, Int}}(), Vector{OVF}())
+    emp = Model(model_ds, Vector{MathPrgm}(), Vector{Vector{MathPrgm}}(), nothing, Vector{Tuple{Symbol, Int}}(), Vector{OVF}())
 
     setemp!(model_ds, emp)
 
@@ -127,11 +120,11 @@ include("helpers.jl")
 
 Add a variable to a Mathematical Programm
 """
-function addvar!(mp::MathPrgm, var::JuMP.Variable)
-    push!(mp.vars, var.col)
+function addvar!(mp::MathPrgm, var::JuMP.VariableRef)
+    push!(mp.vars, var.index.value)
 end
 
-#function addvar!(mp::MathPrgm, var::Array{JuMP.Variable})
+#function addvar!(mp::MathPrgm, var::Array{JuMP.VariableRef})
 #    map(x -> addvar!(mp, x), flatten(var))
 #end
 #
@@ -143,12 +136,8 @@ end
 #    map(x-> addvar!(mp, x), values(var))
 #end
 
-function addvar!(mp::MathPrgm, var)
-    if applicable(values, var)
-        map(x -> addvar!(mp, x), values(var))
-    else
-        throw("Unknown variable of type $(typeof(var)) for argument $var")
-    end
+function addvar!(mp::MathPrgm, var::AbstractArray)
+    map(x -> addvar!(mp, x), flatten(var))
 end
 
 """
@@ -157,9 +146,8 @@ end
 Add an equation to a Mathematical Programm. The argument eqn is a single or list of JuMP.ConstraintRef, not an expression
 """
 function addequ!(mp::MathPrgm, eqn::JuMP.ConstraintRef)
-    gidx = reg_equ(mp.emp, eqn)
-    push!(mp.equs, gidx)
-    return gidx
+    push!(mp.equs, eqn.index.value)
+    return eqn.index.value
 end
 
 #function addequ!(mp::MathPrgm, eqn::Vector{ConstraintRef{M,C}}) where {M <: JuMP.AbstractModel, C <: JuMP.AbstractConstraint}
@@ -170,16 +158,12 @@ end
 #    map(x -> addequ!(mp, x), eqn)
 #end
 
-function addequ!(mp::MathPrgm, eqn)
-    if applicable(values, eqn)
-        map(x -> addequ!(mp, x), values(eqn))
-    else
-        throw("Unknown equation type $(typeof(eqn)) for argument $eqn")
-    end
+function addequ!(mp::MathPrgm, eqn::AbstractArray)
+    map(x -> addequ!(mp, x), flatten(eqn))
 
 end
 
-function addequ!(mp::MathPrgm, eqn::JuMP.JuMPArray{JuMP.ConstraintRef, 1, Tuple{Int64}})
+function addequ!(mp::MathPrgm, eqn::Vector)
     map(x-> addequ!(mp, x), values(eqn))
 end
 
@@ -199,12 +183,12 @@ Tag a variable as a supported OVF
 
 # Arguments
 - `emp::EMP.Model`: the EMP object
-- `v::JuMP.Variable`: the variable
-- `args::Vector{JuMP.Variable}`: the arguments for the OVF problem
+- `v::JuMP.VariableRef`: the variable
+- `args::Vector{JuMP.VariableRef}`: the arguments for the OVF problem
 - `name::String`: the name of the OVF
 - `params::Dict`: the parameters for defining this OVF
 """
-function addovf!(emp::EMP.Model, v::JuMP.Variable, args::Vector{JuMP.Variable}, name::String, params::Dict)
+function addovf!(emp::EMP.Model, v::JuMP.VariableRef, args::Vector{JuMP.VariableRef}, name::String, params::Dict)
     push!(emp.ovfs, OVF(v, args, name, params))
 end
 
@@ -214,7 +198,28 @@ end
 Solve an EMP model
 """
 function solveEMP(emp::EMP.Model)
-    JuMP.solve(emp.model_ds)
+    m = getReSHOPModel(emp)
+
+    if (m.mdl == C_NULL)
+        m.mdl = ReSHOP.reshop_alloc(m.ctx)
+    end
+
+    ReSHOP.emp_init(m.mdl)
+
+    # This is needed to get the metadata initialized
+    if (length(emp.mps) > 0)
+        ReSHOP.reshop_set_modeltype(m.ctx, ReSHOP.emp)
+    end
+
+    # Deal with the emptree
+    emptree(emp, m.mdl)
+
+    # Deal with the OVF functions
+    for ovf in emp.ovfs
+        ReSHOP.reshop_ovf(m.mdl, ovf)
+    end
+
+    JuMP.optimize!(emp.model_ds)
 end
 
 #########################################################################################################

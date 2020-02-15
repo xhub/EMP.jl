@@ -87,11 +87,21 @@ function ast_var_bracket_esc!(expr)
     end
 end
 
+function esc_sym!(ex, start)
+    # We want to skip escaping the inner loop var
+    skipsym = ast_lookahead_loop_vars(ex.args[start:end])
+    for i=start:length(ex.args)
+        ex.args[i] = ast_sym2_esc!(ex.args[i], skipsym)
+    end
+    return skipsym
+end
+
 function esc_var!(ex)
     skipsym=Vector{Symbol}(undef,0)
     if (isa(ex, Symbol))
         varname = esc(ex)
     elseif (!isa(ex, Expr))
+        dump(ex)
         error("Could not parse variable declaration $(ex); please file a bug report at https://github.com/xhub/EMP.jl/issues/new")
     elseif (ex.head == :ref || ex.head == :typed_vcat)
         # This is the case there we have var[...] or var[...; cond]
@@ -105,11 +115,7 @@ function esc_var!(ex)
         # case var[i=1:3]: ex.args[2].head is kw
 
         varname = esc(ex.args[1])
-        # We want to skip escaping the inner loop var
-        skipsym = ast_lookahead_loop_vars(ex.args[2:end])
-        for i=2:length(ex.args)
-            ex.args[i] = ast_sym2_esc!(ex.args[i], skipsym)
-        end
+        skipsym = esc_sym!(ex, 2)
     end
     return varname, skipsym
 end
@@ -139,13 +145,29 @@ function esc_jump_id!(ex)
         else
             if (length(ex.args) == 3)
                 posvar = 2
+                # Here we are trying to test for the case 0 >= var or 0 >= var[...]
+                if (typeof(ex.args[posvar]) <: Number)
+                    posvar = 3
+                end
             else
+                dump(ex)
                 error("Could not parse variable declaration $(ex); please file a bug report at https://github.com/xhub/EMP.jl/issues/new")
             end
         end
 
         varname, skipsym = esc_var!(ex.args[posvar])
+    elseif (ex.head == :vect)
+        # This is the case when we have a anonymous variable like
+        # @variableMP(m, [1:4])
+        skipsym = Vector{Symbol}(undef,0)
+        varname = nothing
+    elseif (ex.head == :vcat)
+        # This is the case when we have a anonymous variable like
+        # @variableMP(m, [i=1:4])
+        skipsym = esc_sym!(ex, 1)
+        varname = nothing
     else
+        dump(ex)
         error("Could not parse variable declaration $(ex); please file a bug report at https://github.com/xhub/EMP.jl/issues/new")
     end
 
@@ -156,39 +178,53 @@ end
 """
 Add a variable to a Mathematical Programm. See JuMP `@variable` for examples
 """
-macro variableMP(mp, args...)
-#    mp = esc(mp)
-    # Pick out keyword arguments
-    if Meta.isexpr(args[1], :parameters) # these come if using a semicolon
-        kwargs = args[1]
-        args = args[2:end]
-    else
-        kwargs = Expr(:parameters)
-    end
-    kwsymbol = VERSION < v"0.6.0-dev.1934" ? :kw : :(=) # changed by julia PR #19868
-    append!(kwargs.args, collect(Iterators.filter(x -> Meta.isexpr(x, kwsymbol), collect(args)))) # comma separated
-    args = collect(Iterators.filter(x -> !Meta.isexpr(x, kwsymbol), collect(args)))
+macro variableMP(args...)
+    mp = esc(args[1])
+    extra, kw_args, requestedcontainer = JuMP._extract_kw_args(args[2:end])
+
     # TODO(xhub) fix this with proper syntax
     # dummyconstr = Expr(:call, @variable, $(mp).emp.m, $(esc(args[1])))
     #then extend the arguments
 
-    ar1 = args[1]
-    varname, skipsym = esc_jump_id!(ar1)
-    jump_call = :(JuMP.@variable mmp $args)
-
-    if length(kwargs.args) > 0
-        ast_sym2_esc!(kwargs, skipsym)
-        append!(jump_call.args, kwargs.args)
+    if length(extra) == 0
+        v = gensym()
+        varname = v
+        skipsym = Vector{Symbol}(undef,0)
+    else
+        v = popfirst!(extra)
+        varname, skipsym = esc_jump_id!(v)
     end
 
-    # dump(args)
+    if length(extra) > 0
+        jump_call = :(JuMP.@variable mmp $v $(extra...))
+    else
+        jump_call = :(JuMP.@variable mmp $v)
+    end
+
+    if length(kw_args) > 0
+        ast_sym2_esc!(kw_args, skipsym)
+        append!(jump_call.args, kw_args)
+    end
+    push!(jump_call.args, Expr(:(=), :container, requestedcontainer))
+
+    if (isnothing(varname))
+        code = :(tmp = $jump_call; addvar!($mp, tmp); tmp)
+    else
+        code = :($varname = $jump_call; addvar!($mp, $varname); $varname)
+    end
+
     return quote
-        mmp = $(esc(mp)).emp.model_ds
-        #varname = $(esc(args[1]))
+        mmp = $mp.emp.model_ds
+        $code
         # TODO: use eval(Expr(:call, variable, ...))
-        $varname = $jump_call
-        addvar!($(esc(mp)), $varname)
-        $varname
+#        if (isnothing($varname))
+#            tmp = $jump_call
+#            addvar!($(esc(mp)), tmp)
+#        else
+#            $varname = $jump_call
+#            addvar!($(esc(mp)), $varname)
+#        end
+#        $varname
     end
 end
 
@@ -324,13 +360,13 @@ then this is defines a Mixed Complementarity Problem
 Or
     0 ∈ expr + N_[lb, ub] (var)
 """
-#function vipair(mp::MathPrgm, expr, var::JuMP.Variable)
+#function vipair(mp::MathPrgm, expr, var::JuMP.VariableRef)
 #    cref, eidx = @constraintFromExprMP(mp, expr)
-#    mp.matching[var.col] = eidx
+#    mp.matching[var.index] = eidx
 #    cref
 #end
 #
-#function vipair(mp::MathPrgm, expr::Vector, var::Vector{JuMP.Variable})
+#function vipair(mp::MathPrgm, expr::Vector, var::Vector{JuMP.VariableRef})
 #    @assert length(expr) == length(var)
 #    for i in 1:length(var)
 #        vipair(mp, expr[i], var[i])
@@ -361,14 +397,13 @@ macro vipair(mp, expr, var)
     return quote
         model = $(mmp).emp.model_ds
         cref = @constraint model $dummyconstr
-        gidx = addequ!($mmp, cref)
-        if (gidx isa Array)
-            @assert length(gidx) == length($mvar)
-            for i=1:length(gidx)
-                $(mmp).matching[$(mvar)[i].col] = gidx[i]
+        addequ!($mmp, cref)
+        if (cref isa Array)
+            for i=1:length(cref)
+                $(mmp).matching[$(mvar)[i].index.value] = cref[i].index.value
             end
         else
-            $(mmp).matching[$(esc(var)).col] = gidx
+            $(mmp).matching[$(esc(var)).index.value] = cref.index.value
         end
         cref
     end
@@ -399,13 +434,13 @@ then this is defines a Mixed Complementarity Problem
 Or
     0 ∈ expr + N_[lb, ub] (var)
 """
-macro NLvipair(mp, expr, var::JuMP.Variable)
+macro NLvipair(mp, expr, var::JuMP.VariableRef)
     cref, eidx = @NLconstraintFromExprMP(mp, expr)
-    mp.matching[var.col] = eidx
+    mp.matching[var.index] = eidx
     cref
 end
 
-#function NLvipair(mp::MathPrgm, expr::Vector, var::Vector{JuMP.Variable})
+#function NLvipair(mp::MathPrgm, expr::Vector, var::Vector{JuMP.VariableRef})
 #    @assert length(expr) == length(var)
 #    for i in 1:length(var)
 #        NLvipair(mp, expr[i], var[i])

@@ -20,8 +20,8 @@ n = 3
 @variableMP(ag, x[1:n] >= 0)
 @variableMP(mkt, p[1:n] >= 0)
 
-JuMP.fix(p[2], 1.)
-JuMP.setvalue(x[1:n], ones(n))
+JuMP.fix(p[2], 1.; force=true)
+JuMP.set_start_value.(x, 1.)
 
 @NLobjectiveMP(ag, :Max, sum(s[i] * log(x[i]) for i=1:n))
 @constraintMP(ag, sum(p[i]*x[i] for i=1:n) <= sum(p[i]*b[i] for i=1:n) )
@@ -31,9 +31,9 @@ JuMP.setvalue(x[1:n], ones(n))
 
 @test solveEMP(mopec) == :Optimal
 
-@test isapprox(getvalue(x)[:], [3,2,0], atol=1e-4)
-@test isapprox(getvalue(p)[:], [6,1,5], atol=1e-4)
-@test isapprox(getvalue(y), 3, atol=1e-4)
+@test isapprox(value.(x)[:], [3,2,0], atol=1e-4)
+@test isapprox(value.(p)[:], [6,1,5], atol=1e-4)
+@test isapprox(value(y), 3, atol=1e-4)
 
 #@test isapprox(getobjectivevalue(m),5326.851310161077, atol=1e-5)
 
