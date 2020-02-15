@@ -5,7 +5,7 @@ end
 # trickery here
 # if we store emp directly, print blows up ...
 function setemp_solver!(m::ReSHOP.Optimizer, emp)
-    ReSHOP.reshop_setemp!(m, function () return _solveEMP(emp) end)
+#    ReSHOP.reshop_setemp!(m, function () return _solveEMP(emp) end)
     return true
 end
 

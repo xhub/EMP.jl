@@ -5,9 +5,8 @@ os:
   - osx
 #
 julia:
-  - 0.6
   - 1.0
-  - 1.1
+  - 1.3
 
 #matrix:
 #    allow_failures:
@@ -42,10 +41,8 @@ env:
 
 ## uncomment the following lines to override the default test script
 script:
-  - julia -e 'VERSION >= v"0.7" && import Pkg; Pkg.add("Compat")'
-  - julia -e 'using Compat.Pkg; VERSION >= v"0.7" && Pkg.add(PackageSpec(url="https://github.com/xhub/JuMP.jl", rev="release-0.18"));'
-  - julia -e 'using Compat.Pkg; Pkg.clone("https://github.com/xhub/ReSHOP.jl"); Pkg.build("ReSHOP"); Pkg.clone(pwd()); Pkg.build("EMP")'
-  - julia -e 'using Compat.Pkg; Pkg.test("EMP"; coverage=true)'
+  - julia -e 'using Pkg; Pkg.clone("https://github.com/xhub/ReSHOP.jl"); Pkg.build("ReSHOP"); Pkg.clone(pwd()); Pkg.build("EMP")'
+  - julia -e 'using Pkg; Pkg.test("EMP"; coverage=true)'
 
 after_success:
   - echo $TRAVIS_JULIA_VERSION
