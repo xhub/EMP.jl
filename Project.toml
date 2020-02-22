@@ -13,6 +13,7 @@ ReSHOP = "97740bd8-9665-555f-bcf8-31e31065c979"
 
 [compat]
 julia = "^1"
+JuMP = "<0.21"
 
 [extras]
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
