@@ -4,6 +4,8 @@ module EMP
 
 using JuMP
 using ReSHOP
+using MathOptInterface
+MOI = MathOptInterface
 
 using Compat
 using Base.Iterators
@@ -14,9 +16,9 @@ export @variableMP, @objectiveMP, @NLobjectiveMP, @constraintMP, @NLconstraintMP
 mutable struct MathPrgm
     emp::Any
     vars::Vector{Int}
-    equs::Vector{Int}
-    matching::Dict{Int,Int}
-    objequ::Int
+    equs::Vector{Tuple{Int, Bool}}
+    matching::Dict{Int,Tuple{Int,Bool}}
+    objequ::Tuple{Int,Bool}
     objvar::Int
     sense::Symbol
     mps::Vector{MathPrgm}
@@ -44,8 +46,8 @@ mutable struct Model
     mps::Vector{MathPrgm}
     equils::Vector{Vector{MathPrgm}}
     root::Union{Nothing,MathPrgm,Vector{MathPrgm},Vector{Vector{MathPrgm}}}
-    equs::Vector{Tuple{Symbol, Int}}
     ovfs::Vector{OVF}
+    NLoffset::Int
 end
 
 """
@@ -57,7 +59,7 @@ The solver argument is used to construct the ReSHOPSolver object.
 function Model(; modeling_pkg = "JuMP", solver = "jams")
     if modeling_pkg == "JuMP"
         model_ds = direct_model(ReSHOP.Optimizer(;solver=solver))
-        emp = Model(model_ds, Vector{MathPrgm}(), Vector{Vector{MathPrgm}}(), nothing, Vector{Tuple{Symbol, Int}}(), Vector{OVF}())
+        emp = Model(model_ds, Vector{MathPrgm}(), Vector{Vector{MathPrgm}}(), nothing, Vector{OVF}(), -1)
     elseif modeling_pkg == "Convex"
         error("Convex.jl is WIP")
     else
@@ -75,7 +77,7 @@ end
 Create an EMP master object and use the argument as the model data storage object
 """
 function Model(model_ds)
-    emp = Model(model_ds, Vector{MathPrgm}(), Vector{Vector{MathPrgm}}(), nothing, Vector{Tuple{Symbol, Int}}(), Vector{OVF}())
+    emp = Model(model_ds, Vector{MathPrgm}(), Vector{Vector{MathPrgm}}(), nothing, Vector{OVF}(), -1)
 
     setemp!(model_ds, emp)
 
@@ -88,7 +90,7 @@ end
 Create a Mathematical Programm in the EMP master object
 """
 function MathPrgm(m::EMP.Model)
-    mp = MathPrgm(m, Vector{Int}(), Vector{Int}(), Dict{Int,Int}(), -1, -1, :undef, Vector{MathPrgm}(), Vector{Vector{MathPrgm}}(),C_NULL)
+    mp = MathPrgm(m, Vector{Int}(), Vector{Int}(), Dict{Int,Tuple{Int,Bool}}(), (-1, false), -1, :undef, Vector{MathPrgm}(), Vector{Vector{MathPrgm}}(),C_NULL)
     push!(m.mps, mp)
     return mp
 end
@@ -144,9 +146,8 @@ end
 
 Add an equation to a Mathematical Programm. The argument eqn is a single or list of JuMP.ConstraintRef, not an expression
 """
-function addequ!(mp::MathPrgm, eqn::JuMP.ConstraintRef)
-    push!(mp.equs, eqn.index.value)
-    return eqn.index.value
+function addequ!(mp::MathPrgm, eqn::JuMP.ConstraintRef, isNL::Bool)
+    push!(mp.equs, (eqn.index.value, isNL))
 end
 
 #function addequ!(mp::MathPrgm, eqn::Vector{ConstraintRef{M,C}}) where {M <: JuMP.AbstractModel, C <: JuMP.AbstractConstraint}
@@ -157,13 +158,13 @@ end
 #    map(x -> addequ!(mp, x), eqn)
 #end
 
-function addequ!(mp::MathPrgm, eqn::AbstractArray)
-    map(x -> addequ!(mp, x), flatten(eqn))
+function addequ!(mp::MathPrgm, eqn::AbstractArray, isNL::Bool)
+    map(x -> addequ!(mp, x, isNL), flatten(eqn))
 
 end
 
-function addequ!(mp::MathPrgm, eqn::Vector)
-    map(x-> addequ!(mp, x), values(eqn))
+function addequ!(mp::MathPrgm, eqn::Vector, isNL::Bool)
+    map(x-> addequ!(mp, x, isNL), values(eqn))
 end
 
 @static if VERSION < v"0.7"
@@ -209,6 +210,14 @@ function solveEMP(emp::EMP.Model)
     if (length(emp.mps) > 0)
         ReSHOP.reshop_set_modeltype(m.ctx, ReSHOP.emp)
     end
+
+    # This is needed to get the NL part loaded, before emptree is called
+    if emp.model_ds.nlp_data !== nothing
+        MOI.set(emp.model_ds, MOI.NLPBlock(), JuMP._create_nlp_block_data(emp.model_ds))
+        empty!(emp.model_ds.nlp_data.nlconstr_duals)
+    end
+
+    emp.NLoffset = m.start_nl_cons
 
     # Deal with the emptree
     emptree(emp, m.mdl)

@@ -42,7 +42,7 @@ for i in 1:n
     end
 end
 
-@test solve(jump_model) == :Optimal
+solveEMP(ctx) == :Optimal
 
 @test isapprox(getvalue(x), [0., 6.47333, 22.2808], atol=1e-4)
 @test isapprox(getdual(constr[1,:]), [-0.8038, 0], atol=1e-3)

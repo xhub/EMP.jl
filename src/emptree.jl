@@ -9,7 +9,7 @@ Add a node of type MP
 - reshop_mp_parent: an opaque pointer to the parent of the node
 """
 function empnode(emp::EMP.Model, mdl::Ptr{ReSHOP.reshop_model}, node::MathPrgm, reshop_mp_parent::Ptr{ReSHOP.mathprgm}=Ptr{ReSHOP.mathprgm}(C_NULL))
-    reshop_mp = ReSHOP.reshop_declare_mathprgm(node, mdl)
+    reshop_mp = ReSHOP.reshop_declare_mathprgm(node, mdl, emp.NLoffset)
     node.solverobj = reshop_mp
 
 #    ReSHOP.reshop_add_mp(reshop_emp, reshop_node, reshop_mp)
@@ -45,7 +45,7 @@ function empnode(emp::EMP.Model, mdl::Ptr{ReSHOP.reshop_model}, node::Vector{Mat
 
     reshop_mps = []
     for mp in node
-        reshop_mp = ReSHOP.reshop_declare_mathprgm(mp, mdl)
+        reshop_mp = ReSHOP.reshop_declare_mathprgm(mp, mdl, emp.NLoffset)
         mp.solverobj = reshop_mp
         ReSHOP.emp_equil_add(reshop_mpe, reshop_mp)
         push!(reshop_mps, reshop_mp)

@@ -1,0 +1,6 @@
+How to update:
+- replace model y EMP
+- replace @variable by @variableMP
+
+- Need to remove some check on upper/lower bounds for Bin variable
+- change integer check to integer value

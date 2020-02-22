@@ -29,7 +29,7 @@ JuMP.set_start_value.(x, 1.)
 @vipair(mkt, [b[i] + ATmat[i]*y - x[i] for i=1:n], p)
 @vipair(mkt, sum(-ATmat[i]*p[i] for i=1:n), y)
 
-@test solveEMP(mopec) == :Optimal
+solveEMP(mopec)
 
 @test isapprox(value.(x)[:], [3,2,0], atol=1e-4)
 @test isapprox(value.(p)[:], [6,1,5], atol=1e-4)

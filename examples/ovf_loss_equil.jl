@@ -101,7 +101,7 @@ cmp_dir = joinpath(dirname(@__FILE__), "test_res")
 unknown_ref = readdlm(joinpath(cmp_dir, "mcp_" * penalty_name * "_v1.out"))
 file_ref = readdlm(joinpath(cmp_dir, "mcp_" * penalty_name * "_v1_fit.out"))
 
-@test solve(m) == :Optimal
+solveEMP(fit_model)
 
 occursin("hinge", penalty_name) && continue
 

@@ -231,16 +231,16 @@ end
 macro constraintFromExprMP(mp, expr)
     return quote
         cref = @constraint $(esc(mp)).emp.model_ds $expr == 0
-        gdix = addequ!($(esc(mp)), cref)
-        (cref, gidx)
+        addequ!($(esc(mp)), cref, false)
+        cref
     end
 end
 
 macro NLconstraintFromExprMP(mp, expr)
     return quote
         cref = @NLconstraint $(esc(mp)).emp.model_ds $expr == 0
-        gidx = addequ!($(esc(mp)), cref)
-        (cref, gidx)
+        addequ!($(esc(mp)), cref, true)
+        cref
     end
 end
 
@@ -257,8 +257,9 @@ macro NLobjectiveMP(mp, sense, expr)
     return quote
         model = $(mmp).emp.model_ds
         cref = @NLconstraint model $dummyconstr
-        gidx = addequ!($mmp, cref)
-        $(mmp).objequ = gidx
+        addequ!($mmp, cref, true)
+        println("NLobjective has value $(cref.index.value)")
+        $(mmp).objequ = (cref.index.value, true)
         $(mmp).sense = $(esc(sense))
         cref
     end
@@ -276,8 +277,8 @@ macro objectiveMP(mp, sense, expr)
     return quote
         model = $(mmp).emp.model_ds
         cref = @constraint model $dummyconstr
-        gidx = addequ!($mmp, cref)
-        $(mmp).objequ = gidx
+        addequ!($mmp, cref, false)
+        $(mmp).objequ = (cref.index.value, false)
         $(mmp).sense = $(esc(sense))
         cref
     end
@@ -294,7 +295,7 @@ macro constraintMP(mp, expr)
         mmp = $(esc(mp))
         model = mmp.emp.model_ds
         cref = @constraint model $expr
-        gdix = addequ!(mmp, cref)
+        addequ!(mmp, cref, false)
         cref
     end
 end
@@ -311,7 +312,7 @@ macro constraintMP(mp, name, expr)
         mmp = $(esc(mp))
         model = mmp.emp.model_ds
         cref = @constraint model $name $expr
-        gdix = addequ!(mmp, cref)
+        addequ!(mmp, cref, true)
         cref
     end
 end
@@ -327,7 +328,7 @@ macro NLconstraintMP(mp, expr)
         mmp = $(esc(mp))
         model = mmp.emp.model_ds
         cref = @NLconstraint model $expr
-        gdix = addequ!(mmp, cref)
+        addequ!(mmp, cref, true)
         cref
     end
 end
@@ -344,7 +345,7 @@ macro NLconstraintMP(mp, name, expr)
         mmp = $(esc(mp))
         model = mmp.emp.model_ds
         cref = @NLconstraint model $name $expr
-        gdix = addequ!(mmp, cref)
+        addequ!(mmp, cref, true)
         cref
     end
 end
@@ -397,13 +398,13 @@ macro vipair(mp, expr, var)
     return quote
         model = $(mmp).emp.model_ds
         cref = @constraint model $dummyconstr
-        addequ!($mmp, cref)
+        addequ!($mmp, cref, false)
         if (cref isa Array)
             for i=1:length(cref)
-                $(mmp).matching[$(mvar)[i].index.value] = cref[i].index.value
+                $(mmp).matching[$(mvar)[i].index.value] = (cref[i].index.value, false)
             end
         else
-            $(mmp).matching[$(esc(var)).index.value] = cref.index.value
+            $(mmp).matching[$(esc(var)).index.value] = (cref.index.value, false)
         end
         cref
     end
@@ -435,8 +436,8 @@ Or
     0 ∈ expr + N_[lb, ub] (var)
 """
 macro NLvipair(mp, expr, var::JuMP.VariableRef)
-    cref, eidx = @NLconstraintFromExprMP(mp, expr)
-    mp.matching[var.index] = eidx
+    cref = @NLconstraintFromExprMP(mp, expr)
+    mp.matching[var.index.value] = (cref.index.value, true)
     cref
 end
 
