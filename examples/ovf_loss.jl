@@ -5,17 +5,14 @@ if !isdef(:versions); versions = [1] end
 if !isdef(:penalty_names); penalty_names = ["huber"] end
 if !isdef(:ovf_formulations); ovf_formulations = ["equilibrium"] end
 
-if VERSION >= v"0.7"
-    using DelimitedFiles
-end
+using DelimitedFiles
 
 N = length(y)
 
 @testset "loss test: penalty = $penalty_name; version = $version; ovf_formulation = $ovf_formulation" for penalty_name in penalty_names, version in versions, ovf_formulation in ovf_formulations
 
-solver = ReSHOPSolver("", Dict{String,Any}([("ovf_formulation", ovf_formulation)]))
 
-m = JuMP.Model(solver=solver)
+m = JuMP.Model(with_optimizer(ReSHOP.Optimizer; ovf_formulation=ovf_formulation))
 
 fit_model = EMP.Model(m)
 
