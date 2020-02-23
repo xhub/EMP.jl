@@ -23,7 +23,7 @@ n = 3
 JuMP.fix(p[2], 1.; force=true)
 JuMP.set_start_value.(x, 1.)
 
-@NLobjectiveMP(ag, :Max, sum(s[i] * log(x[i]) for i=1:n))
+@NLobjectiveMP(ag, Max, sum(s[i] * log(x[i]) for i=1:n))
 @constraintMP(ag, sum(p[i]*x[i] for i=1:n) <= sum(p[i]*b[i] for i=1:n) )
 
 @vipair(mkt, [b[i] + ATmat[i]*y - x[i] for i=1:n], p)

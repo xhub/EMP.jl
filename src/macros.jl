@@ -244,23 +244,35 @@ macro NLconstraintFromExprMP(mp, expr)
     end
 end
 
+# This comes from MOI
+function _sense(sense)
+    if sense == :Min
+        expr = MOI.MIN_SENSE
+    elseif sense == :Max
+        expr = MOI.MAX_SENSE
+    else
+        expr = esc(sense)
+    end
+    return expr
+end
+
 # TODO(xhub) add check warning for an already defined objective equation
 """
     @NLobjectiveMP(mp, sense, expr)
 
-Add a nonlinear objective to a mathematical programm. Sense is either `:Min` or `:Max`.
+Add a nonlinear objective to a mathematical programm. Sense is either `Min` or `Max`.
 """
 macro NLobjectiveMP(mp, sense, expr)
     ast_sym2_esc!(expr)
     dummyconstr = Expr(:call, :(==), expr, 0)
     mmp = esc(mp)
+    sense_sym = _sense(sense)
     return quote
         model = $(mmp).emp.model_ds
         cref = @NLconstraint model $dummyconstr
         addequ!($mmp, cref, true)
-        println("NLobjective has value $(cref.index.value)")
         $(mmp).objequ = (cref.index.value, true)
-        $(mmp).sense = $(esc(sense))
+        $(mmp).sense = $sense_sym
         cref
     end
 end
@@ -268,18 +280,19 @@ end
 """
     @objectiveMP(mp, sense, expr)
 
-Add a linear objective to a mathematical programm. Sense is either `:Min` or `:Max`.
+Add a linear objective to a mathematical programm. Sense is either `Min` or `Max`.
 """
 macro objectiveMP(mp, sense, expr)
     ast_sym2_esc!(expr)
     dummyconstr = Expr(:call, :(==), expr, 0)
     mmp = esc(mp)
+    sense_sym = _sense(sense)
     return quote
         model = $(mmp).emp.model_ds
         cref = @constraint model $dummyconstr
         addequ!($mmp, cref, false)
         $(mmp).objequ = (cref.index.value, false)
-        $(mmp).sense = $(esc(sense))
+        $(mmp).sense = $sense_sym
         cref
     end
 end
@@ -312,7 +325,7 @@ macro constraintMP(mp, name, expr)
         mmp = $(esc(mp))
         model = mmp.emp.model_ds
         cref = @constraint model $name $expr
-        addequ!(mmp, cref, true)
+        addequ!(mmp, cref, false)
         cref
     end
 end

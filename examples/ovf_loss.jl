@@ -12,7 +12,7 @@ N = length(y)
 @testset "loss test: penalty = $penalty_name; version = $version; ovf_formulation = $ovf_formulation" for penalty_name in penalty_names, version in versions, ovf_formulation in ovf_formulations
 
 
-m = JuMP.Model(with_optimizer(ReSHOP.Optimizer; ovf_formulation=ovf_formulation))
+m = direct_model(ReSHOP.Optimizer(;ovf_formulation=ovf_formulation))
 
 fit_model = EMP.Model(m)
 
@@ -32,7 +32,7 @@ if version == 1
 
     addovf!(fit_model, loss_var1, fit1, penalty_name, all_params[penalty_name])
 
-    @objective(m, :Min, loss_var1)
+    @objective(m, Min, loss_var1)
 
     c = c1
     d = d1
@@ -53,7 +53,7 @@ elseif version == 2
 
     addovf!(fit_model, loss_var2, fit2, penalty_name, all_params[penalty_name])
 
-    @objective(m, :Min, loss_var2)
+    @objective(m, Min, loss_var2)
 
     c = c2
     d = d2
@@ -74,7 +74,7 @@ elseif version == 3
 
     addovf!(fit_model, loss_var3, fit3, penalty_name, all_params[penalty_name])
 
-    @objective(m, :Min, loss_var3)
+    @objective(m, Min, loss_var3)
 
     c = c3
     d = d3
@@ -95,7 +95,7 @@ elseif version == 4
 
     addovf!(fit_model, loss_var4, fit4, penalty_name, all_params[penalty_name])
 
-    @objective(m, :Min, loss_var4)
+    @objective(m, Min, loss_var4)
 
     c = c4
     d = d4
@@ -116,7 +116,7 @@ elseif version == 5
 
     addovf!(fit_model, loss_var5, fit5, penalty_name, all_params[penalty_name])
 
-    @objective(m, :Min, loss_var5)
+    @objective(m, Min, loss_var5)
 
     c = c5
     d = d5
@@ -130,13 +130,13 @@ file_ref = readdlm(joinpath(cmp_dir, "mcp_" * penalty_name * "_v1_fit.out"))
 
 solveEMP(fit_model)
 
-@test isapprox(getvalue(c), [unknown_ref[1]], rtol=1e-4)
-@test isapprox(getvalue(d), unknown_ref[2], rtol=1e-4)
-@test isapprox(getvalue(fit), file_ref[1:N], rtol=1e-4)
+occursin("hinge", penalty_name) && continue
 
-occursin("soft_hinge", penalty_name) && continue
+@test isapprox(value.(c), [unknown_ref[1]], rtol=1e-4)
+@test isapprox(value(d), unknown_ref[2], rtol=1e-4)
+@test isapprox(value.(fit), file_ref[1:N], rtol=1e-4)
 
-@test isapprox(getvalue(loss_var), unknown_ref[3], rtol=1e-4)
+@test isapprox(value(loss_var), unknown_ref[3], rtol=1e-4)
 #@test isapprox(getobjectivevalue(m), unknown_ref[3], rtol=1e-4)
 
 end

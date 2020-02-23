@@ -10,7 +10,7 @@ MOI = MathOptInterface
 using Compat
 using Base.Iterators
 
-export @variableMP, @objectiveMP, @NLobjectiveMP, @constraintMP, @NLconstraintMP, @vipair, @NLvipair, solveEMP, _solveEMP, MathPrgm, EquilibriumProblem, BilevelProblem, addvar!, addequ!, addovf!, getsolution, status, get_solve_result, get_solve_result_num, get_model_result, get_model_result_num, get_solve_message, get_solve_exitcode, solve, getobjval
+export @variableMP, @objectiveMP, @NLobjectiveMP, @constraintMP, @NLconstraintMP, @vipair, @NLvipair, solveEMP, _solveEMP, MathPrgm, EquilibriumProblem, BilevelProblem, addvar!, addequ!, addovf!, getsolution, status, termination_status, primal_status, dual_status, get_model_result_num, solve, getobjval
 
 " Mathematical Programm representation "
 mutable struct MathPrgm
@@ -20,7 +20,7 @@ mutable struct MathPrgm
     matching::Dict{Int,Tuple{Int,Bool}}
     objequ::Tuple{Int,Bool}
     objvar::Int
-    sense::Symbol
+    sense::Union{Symbol,MOI.OptimizationSense}
     mps::Vector{MathPrgm}
     equils::Vector{Vector{MathPrgm}}
     solverobj::Ptr{}
@@ -77,7 +77,10 @@ end
 Create an EMP master object and use the argument as the model data storage object
 """
 function Model(model_ds)
-    emp = Model(model_ds, Vector{MathPrgm}(), Vector{Vector{MathPrgm}}(), nothing, Vector{OVF}(), -1)
+    if !(model_ds.moi_backend isa ReSHOP.Optimizer)
+        error("The JuMP model must be direct solver, use JuMP.direct_model")
+    end
+    emp = EMP.Model(model_ds, Vector{MathPrgm}(), Vector{Vector{MathPrgm}}(), nothing, Vector{OVF}(), -1)
 
     setemp!(model_ds, emp)
 
@@ -227,7 +230,7 @@ function solveEMP(emp::EMP.Model)
         ReSHOP.reshop_ovf(m.mdl, ovf)
     end
 
-    JuMP.optimize!(emp.model_ds)
+    optimize!(emp.model_ds)
 end
 
 #########################################################################################################
@@ -330,12 +333,9 @@ function getobjval(mp::MathPrgm)
 end
 
 # Access to solve results
-get_solve_result(emp::EMP.Model) = getReSHOPModel(emp).solve_result
-get_solve_result_num(emp::EMP.Model) = getReSHOPModel(emp).solve_result_num
-get_model_result(emp::EMP.Model) = getReSHOPModel(emp).model_result
-get_model_result_num(emp::EMP.Model) = getReSHOPModel(emp).model_result_num
-get_solve_message(emp::EMP.Model) = getReSHOPModel(emp).solve_message
-get_solve_exitcode(emp::EMP.Model) = getReSHOPModel(emp).solve_exitcode
+termination_status(emp::EMP.Model) = JuMP.termination_status(emp.model_ds)
+primal_status(emp::EMP.Model) = JuMP.primal_status(emp.model_ds)
+dual_status(emp::EMP.Model) = JuMP.dual_status(emp.model_ds)
 
 function Base.show(io::IO, m::EMP.Model)
     print(io, "EMP data structure")
