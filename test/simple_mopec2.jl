@@ -1,5 +1,5 @@
 using JuMP, ReSHOP, EMP
-using Compat.Test
+using Test
 
 @testset "simple mopec" begin
 

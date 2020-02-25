@@ -1,6 +1,6 @@
 #for undef and occursin
 using Compat
-using Compat.Test
+using Test
 
 #examples_path = joinpath(dirname(dirname(@__FILE__)), "examples")
 #for example in ["simple_mopec2.jl"]
