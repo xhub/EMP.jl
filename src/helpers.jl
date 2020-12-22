@@ -33,7 +33,7 @@ function _getrealmoibackend(o)
     error("Unknown Optimizer of type $(typeof(o))")
 end
 
-function getReSHOPModel(emp::EMP.Model)
+function getReSHOPModel(emp::EMPmaster)
     jmodel = emp.model_ds
 
     return _getrealmoibackend(jmodel.moi_backend)

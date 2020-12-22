@@ -216,15 +216,6 @@ macro variableMP(args...)
     return quote
         mmp = $mp.emp.model_ds
         $code
-        # TODO: use eval(Expr(:call, variable, ...))
-#        if (isnothing($varname))
-#            tmp = $jump_call
-#            addvar!($(esc(mp)), tmp)
-#        else
-#            $varname = $jump_call
-#            addvar!($(esc(mp)), $varname)
-#        end
-#        $varname
     end
 end
 
@@ -364,7 +355,7 @@ macro NLconstraintMP(mp, name, expr)
 end
 
 """
-    vipair(mp, expr, var)
+    @vipair(mp, expr, var)
 
 Add an affine variational inequality relationship between the variable `var` and the mapping `expr`
 

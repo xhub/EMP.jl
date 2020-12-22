@@ -12,7 +12,7 @@ MathOptInterface = "b8f27783-ece8-5eb3-8dc8-9495eed66fee"
 ReSHOP = "97740bd8-9665-555f-bcf8-31e31065c979"
 
 [compat]
-JuMP = "<0.21"
+JuMP = ">=0.21"
 julia = "^1"
 
 [extras]

@@ -8,7 +8,7 @@ Add a node of type MP
 - node: the node to process
 - reshop_mp_parent: an opaque pointer to the parent of the node
 """
-function empnode(emp::EMP.Model, mdl::Ptr{ReSHOP.reshop_model}, node::MathPrgm, reshop_mp_parent::Ptr{ReSHOP.mathprgm}=Ptr{ReSHOP.mathprgm}(C_NULL))
+function empnode(emp::EMPmaster, mdl::Ptr{ReSHOP.reshop_model}, node::MathPrgm, reshop_mp_parent::Ptr{ReSHOP.mathprgm}=Ptr{ReSHOP.mathprgm}(C_NULL))
     reshop_mp = ReSHOP.reshop_declare_mathprgm(node, mdl, emp.NLoffset)
     node.solverobj = reshop_mp
 
@@ -40,7 +40,7 @@ Add a node of type equilibrium
 - node: the node to process
 - reshop_mp_parent: an opaque pointer to the parent of the node
 """
-function empnode(emp::EMP.Model, mdl::Ptr{ReSHOP.reshop_model}, node::Vector{MathPrgm}, reshop_mp_parent::Ptr{ReSHOP.mathprgm}=Ptr{ReSHOP.mathprgm}(C_NULL))
+function empnode(emp::EMPmaster, mdl::Ptr{ReSHOP.reshop_model}, node::Vector{MathPrgm}, reshop_mp_parent::Ptr{ReSHOP.mathprgm}=Ptr{ReSHOP.mathprgm}(C_NULL))
     reshop_mpe = ReSHOP.emp_create_equil(length(node))
 
     reshop_mps = []
@@ -73,7 +73,7 @@ end
 
 Pass the EMP graph structure to the EMP solver
 """
-function emptree(emp::EMP.Model, mdl::Ptr{ReSHOP.reshop_model})
+function emptree(emp::EMPmaster, mdl::Ptr{ReSHOP.reshop_model})
     if !isnothing(emp.root)
         ReSHOP.emp_mp_ensure(mdl, length(emp.mps))
 
