@@ -5,7 +5,7 @@
 #############################################################################
 # JuMP
 # An algebraic modeling language for Julia
-# See http://github.com/JuliaOpt/JuMP.jl
+# See http://github.com/jump-dev/JuMP.jl
 #############################################################################
 # test/variable.jl
 # Testing for VariableRef
@@ -17,7 +17,7 @@ using EMP
 import LinearAlgebra: Symmetric
 using Test
 
-include("utilities.jl")
+include(joinpath(@__DIR__, "utilities.jl"))
 #@static if !(:JuMPExtension in names(Main))
 #    include("JuMPExtension.jl")
 #end
@@ -31,7 +31,7 @@ end
 
 # Slices three-dimensional DenseAxisArray x[I,J,K]
 # I,J,K can be singletons, ranges, colons, etc.
-function sliceof(VariableRefType, x, I, J, K)
+function _sliceof_util(VariableRefType, x, I, J, K)
     y = Array{VariableRefType}(undef, length(I), length(J), length(K))
 
     ii = 1
@@ -394,42 +394,42 @@ function test_variable_denseaxisarray_slices(ModelType, VariableRefType)
     @variable(mp, z[1:3, -1:2:4, 3:4])
     @variable(mp, w[1:3, -1:2,[:red, "blue"]])
 
-    #@test x[:] == vec(sliceof(VariableRefType, x, 1:3, 1:4, 1:2))
+    #@test x[:] == vec(_sliceof_util(VariableRefType, x, 1:3, 1:4, 1:2))
     @test x isa JuMP.Containers.DenseAxisArray
-    @test x[:, :, :].data == sliceof(VariableRefType, x, 1:3, 1:4, 1:2)
-    @test x[1, :, :].data == sliceof(VariableRefType, x, 1, 1:4, 1:2)
-    @test x[1, :, 2].data == sliceof(VariableRefType, x, 1, 1:4, 2)
+    @test x[:, :, :].data == _sliceof_util(VariableRefType, x, 1:3, 1:4, 1:2)
+    @test x[1, :, :].data == _sliceof_util(VariableRefType, x, 1, 1:4, 1:2)
+    @test x[1, :, 2].data == _sliceof_util(VariableRefType, x, 1, 1:4, 2)
     @test_throws KeyError x[1, :, 3]
-    #@test x[1:2,:,:].data == sliceof(VariableRefType, x, 1:2, 1:4, 1:2)
-    #@test x[1:2,:,2].data == sliceof(VariableRefType, x, 1:2, 1:4, 2)
-    #@test x[1:2,:,1:2].data == sliceof(VariableRefType, x, 1:2, 1:4, 1:2)
+    #@test x[1:2,:,:].data == _sliceof_util(VariableRefType, x, 1:2, 1:4, 1:2)
+    #@test x[1:2,:,2].data == _sliceof_util(VariableRefType, x, 1:2, 1:4, 2)
+    #@test x[1:2,:,1:2].data == _sliceof_util(VariableRefType, x, 1:2, 1:4, 1:2)
     @test_throws KeyError x[1:2, :, 1:3]
 
-    #@test y[:] == vec(sliceof(VariableRefType, y, 1:3, -1:2, 3:4))
-    @test y[:, :, :].data == sliceof(VariableRefType, y, 1:3, -1:2, 3:4)
-    @test y[1, :, :].data == sliceof(VariableRefType, y, 1, -1:2, 3:4)
-    @test y[1, :, 4].data == sliceof(VariableRefType, y, 1, -1:2, 4)
+    #@test y[:] == vec(_sliceof_util(VariableRefType, y, 1:3, -1:2, 3:4))
+    @test y[:, :, :].data == _sliceof_util(VariableRefType, y, 1:3, -1:2, 3:4)
+    @test y[1, :, :].data == _sliceof_util(VariableRefType, y, 1, -1:2, 3:4)
+    @test y[1, :, 4].data == _sliceof_util(VariableRefType, y, 1, -1:2, 4)
     @test_throws KeyError y[1, :, 5]
-    # @test y[1:2,:,:] == sliceof(VariableRefType, y, 1:2, -1:2, 3:4)
-    # @test y[1:2,:,4] == sliceof(VariableRefType, y, 1:2, -1:2, 4)
-    # @test y[1:2,:,3:4] == sliceof(VariableRefType, y, 1:2, -1:2, 3:4)
+    # @test y[1:2,:,:] == _sliceof_util(VariableRefType, y, 1:2, -1:2, 3:4)
+    # @test y[1:2,:,4] == _sliceof_util(VariableRefType, y, 1:2, -1:2, 4)
+    # @test y[1:2,:,3:4] == _sliceof_util(VariableRefType, y, 1:2, -1:2, 3:4)
     # @test_throws BoundsError y[1:2,:,1:3]
 
-    #@test z[:] == vec(sliceof(VariableRefType, z, 1:3, -1:2:4, 3:4))
-    @test z[:, 1, :].data == sliceof(VariableRefType, z, 1:3, 1, 3:4)
-    @test z[1, 1, :].data == sliceof(VariableRefType, z, 1, 1, 3:4)
+    #@test z[:] == vec(_sliceof_util(VariableRefType, z, 1:3, -1:2:4, 3:4))
+    @test z[:, 1, :].data == _sliceof_util(VariableRefType, z, 1:3, 1, 3:4)
+    @test z[1, 1, :].data == _sliceof_util(VariableRefType, z, 1, 1, 3:4)
     @test_throws KeyError z[:, 5, 3]
-    # @test z[1:2,1,:] == sliceof(VariableRefType, z, 1:2, 1, 3:4)
-    # @test z[1:2,1,4] == sliceof(VariableRefType, z, 1:2, 1, 4)
-    # @test z[1:2,1,3:4] == sliceof(VariableRefType, z, 1:2, 1, 3:4)
+    # @test z[1:2,1,:] == _sliceof_util(VariableRefType, z, 1:2, 1, 3:4)
+    # @test z[1:2,1,4] == _sliceof_util(VariableRefType, z, 1:2, 1, 4)
+    # @test z[1:2,1,3:4] == _sliceof_util(VariableRefType, z, 1:2, 1, 3:4)
     # @test_throws BoundsError z[1:2,1,1:3]
 
-    #@test w[:] == vec(sliceof(VariableRefType, w, 1:3, -1:2, [:red,"blue"]))
+    #@test w[:] == vec(_sliceof_util(VariableRefType, w, 1:3, -1:2, [:red,"blue"]))
     @test w[:, :, :] == w
-    @test w[1, :, "blue"].data == sliceof(VariableRefType, w, 1, -1:2, ["blue"])
-    @test w[1, :, :red].data == sliceof(VariableRefType, w, 1, -1:2, [:red])
+    @test w[1, :, "blue"].data == _sliceof_util(VariableRefType, w, 1, -1:2, ["blue"])
+    @test w[1, :, :red].data == _sliceof_util(VariableRefType, w, 1, -1:2, [:red])
     @test_throws KeyError w[1, :, "green"]
-    # @test w[1:2,:,"blue"] == sliceof(VariableRefType, w, 1:2, -1:2, ["blue"])
+    # @test w[1:2,:,"blue"] == _sliceof_util(VariableRefType, w, 1:2, -1:2, ["blue"])
     # @test_throws ErrorException w[1:2,:,[:red,"blue"]]
 end
 
@@ -442,7 +442,7 @@ function test_variable_end_indexing(ModelType)
     @test z[end] == z[2]
     # TODO: It is redirected to x[11] as it is the 11th element but linear
     #       indexing is not supported
-    @test_throws KeyError x[end-1]
+    @test_throws BoundsError x[end-1]
 end
 
 function test_variable_unsigned_index(ModelType)
@@ -536,9 +536,6 @@ function variables_test(ModelType::Type{<:JuMP.AbstractModel},
         test_variable_unsigned_index(ModelType)
     end
 
-    @testset "Symmetric variable" begin
-        test_variable_symmetric(ModelType)
-    end
 end
 
 @testset "Variables for JuMP.Model" begin

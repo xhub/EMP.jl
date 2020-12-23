@@ -76,10 +76,7 @@ end
 function JuMP.delete(model::MathPrgm, vrefs::Vector{JuMP.VariableRef})
     JuMP.delete.(model, vrefs)
 end
-function JuMP.is_valid(model::MathPrgm, vref::JuMP.VariableRef)
-    return (model === vref.model &&
-            vref.idx in keys(model.variables))
-end
+JuMP.is_valid(model::MathPrgm, vref::JuMP.VariableRef) = JuMP.is_valid(model.emp.backend, vref)
 JuMP.num_variables(model::MathPrgm) = length(model.vars)
 
 # Constraints
@@ -171,6 +168,7 @@ function JuMP.constraints_string(print_mode, model::MathPrgm)
     return strings
 end
 
+JuMP.all_variables(model::MathPrgm) = JuMP.all_variables(model.emp.backend)
 #########################################################################
 # EMP add
 #########################################################################
