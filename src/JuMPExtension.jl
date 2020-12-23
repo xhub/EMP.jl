@@ -7,7 +7,7 @@
 using JuMP
 
 function remove!(a, item)
-    deleteat!(a, findall(x->x==item, a))
+    deleteat!(a, findall(x -> x==item, a))
 end
 
 
@@ -17,7 +17,7 @@ end
 
 " Mathematical Programm representation "
 mutable struct MathPrgm <: JuMP.AbstractModel
-    emp_master
+    emp
     vars::Vector{Int}
     equs::Vector{Tuple{Int, Bool}}
     matching::Dict{Int,Tuple{Int,Bool}}
@@ -28,6 +28,15 @@ mutable struct MathPrgm <: JuMP.AbstractModel
 
     objective_function::JuMP.AbstractJuMPScalar
     obj_dict::Dict{Symbol, Any}                     # Same that JuMP.Model's field `obj_dict`
+    function MathPrgm(m)
+        mp = new(m, Vector{Int}(), Vector{Tuple{Int, Bool}}(),
+                      Dict{Int,Tuple{Int,Bool}}(), MOI.FEASIBILITY_SENSE,
+                      Vector{MathPrgm}(), Vector{Vector{MathPrgm}}(),
+                      C_NULL, zero(JuMP.GenericAffExpr{Float64, JuMP.VariableRef}),
+                      Dict{Symbol, Any}())
+        push!(m.mps, mp)
+        return mp
+    end
 end
 
 
@@ -43,9 +52,9 @@ JuMP.object_dictionary(model::MathPrgm) = model.obj_dict
 #Base.broadcastable(v::MyVariableRef) = Ref(v)
 #JuMP.isequal_canonical(v::MyVariableRef, w::MyVariableRef) = v == w
 JuMP.variable_type(::MathPrgm) = JuMP.VariableRef
-function JuMP.add_variable(m::MathPrgm, v::JuMP.AbstractVariable, name::String="")
+function JuMP.add_variable(model::MathPrgm, v::JuMP.AbstractVariable, name::String="")
     vref = JuMP.add_variable(model.emp.backend, v, name)
-    push!(mp.vars, vref.index.value)
+    push!(model.vars, vref.index.value)
     vref
 end
 function JuMP.add_variable(model::MathPrgm, variable::JuMP.VariableConstrainedOnCreation, name::String)
@@ -61,7 +70,7 @@ function JuMP.add_variable(model::MathPrgm, variable::JuMP.VariablesConstrainedO
 end
 function JuMP.delete(model::MathPrgm, vref::JuMP.VariableRef)
     @assert JuMP.is_valid(model.emp.backend, vref)
-    remove!(model.emp.backend, vref.index.value)
+    remove!(model.vars, vref.index.value)
     delete(model.emp.backend, vref)
 end
 function JuMP.delete(model::MathPrgm, vrefs::Vector{JuMP.VariableRef})
@@ -71,14 +80,14 @@ function JuMP.is_valid(model::MathPrgm, vref::JuMP.VariableRef)
     return (model === vref.model &&
             vref.idx in keys(model.variables))
 end
-JuMP.num_variables(m::MathPrgm) = length(m.vars)
+JuMP.num_variables(model::MathPrgm) = length(model.vars)
 
 # Constraints
 JuMP.constraint_type(::MathPrgm) = JuMP.ConstraintRef
 function JuMP.add_constraint(model::MathPrgm, c::JuMP.AbstractConstraint,
                              name::String="")
     cref = JuMP.add_constraint(model.emp.backend, c, name)
-    push!(mp.equs, cref.index.value)
+    push!(model.equs, cref.index.value)
     cref
 end
 function JuMP.delete(model::MathPrgm, cref::JuMP.ConstraintRef)
@@ -109,10 +118,10 @@ end
 
 # Objective
 function JuMP.set_objective_function(model::MathPrgm, f::JuMP.AbstractJuMPScalar)
-    m.objective_function = f
+    model.objective_function = f
 end
-function JuMP.set_objective_function(m::MathPrgm, f::Real)
-    m.objective_function = JuMP.GenericAffExpr{Float64, JuMP.VariableRef}(f)
+function JuMP.set_objective_function(model::MathPrgm, f::Real)
+    model.objective_function = JuMP.GenericAffExpr{Float64, JuMP.VariableRef}(f)
 end
 JuMP.objective_sense(model::MathPrgm) = model.objectivesense
 function JuMP.set_objective_sense(model::MathPrgm, sense)
@@ -148,7 +157,7 @@ function JuMP.objective_function_string(print_mode, model::MathPrgm)
 end
 _plural(n) = (isone(n) ? "" : "s")
 function JuMP.show_constraints_summary(io::IO, model::MathPrgm)
-    n = length(model.constraints)
+    n = length(model.equs)
     print(io, "Constraint", _plural(n), ": ", n)
 end
 function JuMP.constraints_string(print_mode, model::MathPrgm)
@@ -161,3 +170,7 @@ function JuMP.constraints_string(print_mode, model::MathPrgm)
     end
     return strings
 end
+
+#########################################################################
+# EMP add
+#########################################################################

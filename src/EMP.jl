@@ -48,7 +48,7 @@ The solver argument is used to construct the ReSHOPSolver object.
 function EMPmaster(; modeling_pkg = "JuMP", solver = "jams")
     if modeling_pkg == "JuMP"
         backend = direct_model(ReSHOP.Optimizer(;solver=solver))
-        emp = Model(backend, Vector{MathPrgm}(), Vector{Vector{MathPrgm}}(), nothing, Vector{OVF}(), -1)
+        emp = EMPmaster(backend)
     elseif modeling_pkg == "Convex"
         error("Convex.jl is WIP")
     else
@@ -77,15 +77,6 @@ end
 
 Create a Mathematical Programm in the EMP master object
 """
-function MathPrgm(m::EMPmaster)
-    mp = MathPrgm(m, Vector{Int}(), Vector{Int}(),
-                  Dict{Int,Tuple{Int,Bool}}(), MOI.FEASIBILITY_SENSE,
-                  Vector{MathPrgm}(), Vector{Vector{MathPrgm}}(),
-                  C_NULL, zero(JuMP.GenericAffExpr{Float64, JuMP.VariableRef}),
-                  Dict{Symbol, Any}())
-    push!(m.mps, mp)
-    return mp
-end
 
 " Create an Equilibrium object (not implemented) "
 function Equilibrium(emp::EMPmaster, mps::Vector{MathPrgm})
