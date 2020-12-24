@@ -26,7 +26,7 @@ mutable struct MathPrgm <: JuMP.AbstractModel
     equils::Vector{Vector{MathPrgm}}
     solverobj::Ptr{}
 
-    objective_function::JuMP.AbstractJuMPScalar
+    objective_function::Union{JuMP.AbstractJuMPScalar,JuMP._NonlinearExprData}
     obj_dict::Dict{Symbol, Any}                     # Same that JuMP.Model's field `obj_dict`
     function MathPrgm(m)
         mp = new(m, Vector{Int}(), Vector{Tuple{Int, Bool}}(),
@@ -120,6 +120,9 @@ end
 function JuMP.set_objective_function(model::MathPrgm, f::Real)
     model.objective_function = JuMP.GenericAffExpr{Float64, JuMP.VariableRef}(f)
 end
+function JuMP.set_objective_function(model::MathPrgm, f::JuMP._NonlinearExprData)
+    model.objective_function = f
+end
 JuMP.objective_sense(model::MathPrgm) = model.objectivesense
 function JuMP.set_objective_sense(model::MathPrgm, sense)
     model.objectivesense = sense
@@ -172,3 +175,4 @@ JuMP.all_variables(model::MathPrgm) = JuMP.all_variables(model.emp.backend)
 #########################################################################
 # EMP add
 #########################################################################
+JuMP._parse_NL_expr_runtime(model::MathPrgm, a::Any, b::Any, c::Any, d::Any) = JuMP._parse_NL_expr_runtime(model.emp.backend, a, b, c, d)

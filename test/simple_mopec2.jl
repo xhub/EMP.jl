@@ -7,7 +7,7 @@ ATmat = [1., -1., -1.]
 s = [.9, .1, 0]
 b = [0, 5, 3]
 
-mopec = EMP.Model()
+mopec = EMPmaster()
 
 ag = MathPrgm(mopec)
 mkt = MathPrgm(mopec)
@@ -16,18 +16,18 @@ EquilibriumProblem(mopec, [ag, mkt])
 
 n = 3
 
-@variableMP(mkt, y >= 0)
-@variableMP(ag, x[1:n] >= 0)
-@variableMP(mkt, p[1:n] >= 0)
+@variable(mkt, y >= 0)
+@variable(ag, x[1:n] >= 0)
+@variable(mkt, p[1:n] >= 0)
 
 JuMP.fix(p[2], 1.; force=true)
 JuMP.set_start_value.(x, 1.)
 
-@NLobjectiveMP(ag, Max, sum(s[i] * log(x[i]) for i=1:n))
-@constraintMP(ag, sum(p[i]*x[i] for i=1:n) <= sum(p[i]*b[i] for i=1:n) )
+@NLobjective(ag, Max, sum(s[i] * log(x[i]) for i=1:n))
+@constraint(ag, sum(p[i]*x[i] for i=1:n) <= sum(p[i]*b[i] for i=1:n) )
 
-@vipair(mkt, [b[i] + ATmat[i]*y - x[i] for i=1:n], p)
-@vipair(mkt, sum(-ATmat[i]*p[i] for i=1:n), y)
+@constraint(mkt, [b[i] + ATmat[i]*y - x[i] for i=1:n] ⟂ p)
+@constraint(mkt, sum(-ATmat[i]*p[i] for i=1:n) ⟂ y)
 
 solveEMP(mopec)
 

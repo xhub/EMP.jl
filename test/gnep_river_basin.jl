@@ -17,27 +17,23 @@ u = [6.5    4.583;
 
 n = 3
 
-ctx = EMP.Model()
-
-jump_model = ctx.model_ds
+ctx = EMPmaster()
 
 ag = [MathPrgm(ctx) for i in 1:n]
 
 EquilibriumProblem(ctx, ag)
 
-@variable(jump_model, x[1:n] >= 0)
-
 # Add the variable to the MP
 for i in 1:n
-    addvar!(ag[i], x[i])
+    @variable(jump_model, x[i] >= 0)
 end
 
 constr = Array{Any}(undef, n, 2)
 
 for i in 1:n
-    @objectiveMP(ag[i], Min, (c[1, i] + c[2, i]*x[i])*x[i] - (d1 - d2*sum(x[j] for j in 1:n))*x[i])
+    @objective(ag[i], Min, (c[1, i] + c[2, i]*x[i])*x[i] - (d1 - d2*sum(x[j] for j in 1:n))*x[i])
     for m in 1:2
-        cons = @constraintMP(ag[i], sum(u[j, m]*ee[j]*x[j] for j in 1:3) <= K[m])
+        cons = @constraint(ag[i], sum(u[j, m]*ee[j]*x[j] for j in 1:3) <= K[m])
         setindex!(constr, cons, i, m)
     end
 end
