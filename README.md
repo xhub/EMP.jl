@@ -6,6 +6,8 @@
 
 # EMP
 
+**This package is in beta-quality and needs to be updated to the latest version of JuMP/MOI**.
+
 This package enables the modeling of *Extending Mathematical Programming* (EMP) concepts within the JuliaOpt ecosystem.
 Broadly speaking, EMP enables the modeling of optimization problems with a structure that do not fit the classical minimization problem.
 For instance, the following problems can be modeled with EMP
