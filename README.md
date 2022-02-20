@@ -26,3 +26,5 @@ in an EMP master object.
 
 This package relies on ReSHOP.jl to export the model and the EMP information to the ReSHOP library.
 The latter is going to perform the necessary model transformations.
+
+*Note: This package is developed independently of the GAMS corporation*
