@@ -10,7 +10,7 @@ MOI = MathOptInterface
 using Compat
 using Base.Iterators
 
-export @vipair, @NLvipair, EMPmaster, solveEMP, _solveEMP, MathPrgm, EquilibriumProblem, BilevelProblem, addovf!, getsolution, status, termination_status, primal_status, dual_status, get_model_result_num, solve, getobjval
+export @vipair, @NLvipair, EMPmaster, solveEMP, _solveEMP, MathPrgm, EquilibriumProblem, BilevelProblem, addovf!, getsolution, status, termination_status, primal_status, dual_status, get_model_result_num, getobjval, get_JuMP_model
 
 
 include("JuMPExtension.jl")
@@ -36,30 +36,31 @@ mutable struct EMPmaster
     equils::Vector{Vector{MathPrgm}}
     root::Union{Nothing,MathPrgm,Vector{MathPrgm},Vector{Vector{MathPrgm}}}
     ovfs::Vector{OVF}
+    opts::Dict{String,Any}
     NLoffset::Int
 end
 
 """
-    Model([modeling_pkg = "JuMP", solver = "jams"])
+    EMPmaster([modeling_pkg = "JuMP", solver = "jams"])
 
 Create an EMP master object, using the modeling package given as argument to store the variables and equations.
 The solver argument is used to construct the ReSHOPSolver object.
 """
-function EMPmaster(; modeling_pkg = "JuMP", solver = "jams")
+function EMPmaster(; modeling_pkg = "JuMP", solver = "")
     if modeling_pkg == "JuMP"
         backend = direct_model(ReSHOP.Optimizer(;solver=solver))
         emp = EMPmaster(backend)
     elseif modeling_pkg == "Convex"
         error("Convex.jl is WIP")
     else
-        error("No valid modeling_ds value passed. It should be either ``JuMP'' or ``Convex''")
+        error("No valid modeling_pkg value passed. It should be either ``JuMP'' or ``Convex''")
     end
 
     return emp
 end
 
 """
-    Model(backend)
+    EMPmaster(backend)
 
 Create an EMP master object and use the argument as the model data storage object
 """
@@ -67,9 +68,14 @@ function EMPmaster(backend)
     if !(backend.moi_backend isa ReSHOP.Optimizer)
         error("The JuMP model must be direct solver, use JuMP.direct_model")
     end
-    emp = EMPmaster(backend, Vector{MathPrgm}(), Vector{Vector{MathPrgm}}(), nothing, Vector{OVF}(), -1)
 
-    return emp
+    return EMPmaster(backend,
+                     Vector{MathPrgm}(),
+                     Vector{Vector{MathPrgm}}(),
+                     nothing,
+                     Vector{OVF}(),
+                     Dict{String,Any}(),
+                     -1)
 end
 
 """
@@ -99,57 +105,6 @@ end
 
 include("helpers.jl")
 
-#"""
-#    addvar!(mp, var)
-#
-#Add a variable to a Mathematical Programm
-#"""
-#function addvar!(mp::MathPrgm, var::JuMP.VariableRef)
-#    push!(mp.vars, var.index.value)
-#end
-#
-#function addvar!(mp::MathPrgm, var::Array{JuMP.VariableRef})
-#    map(x -> addvar!(mp, x), flatten(var))
-#end
-#
-#function addvar!(mp::MathPrgm, var::JuMP.JuMPArray)
-#    map(x-> addvar!(mp, x), values(var))
-#end
-#
-#function addvar!(mp::MathPrgm, var::JuMP.JuMPDict)
-#    map(x-> addvar!(mp, x), values(var))
-#end
-
-#function addvar!(mp::MathPrgm, var::AbstractArray)
-#    map(x -> addvar!(mp, x), flatten(var))
-#end
-
-#"""
-#    addequ!(mp, eqn)
-#
-#Add an equation to a Mathematical Programm. The argument eqn is a single or list of JuMP.ConstraintRef, not an expression
-#"""
-#function addequ!(mp::MathPrgm, eqn::JuMP.ConstraintRef, isNL::Bool)
-#    push!(mp.equs, (eqn.index.value, isNL))
-#end
-
-#function addequ!(mp::MathPrgm, eqn::Vector{ConstraintRef{M,C}}) where {M <: JuMP.AbstractModel, C <: JuMP.AbstractConstraint}
-#    map(x -> addequ!(mp, x), eqn)
-#end
-
-#function addequ!(mp::MathPrgm, eqn::Vector{JuMP.ConstraintRef})
-#    map(x -> addequ!(mp, x), eqn)
-#end
-
-#function addequ!(mp::MathPrgm, eqn::AbstractArray, isNL::Bool)
-#    map(x -> addequ!(mp, x, isNL), flatten(eqn))
-#
-#end
-#
-#function addequ!(mp::MathPrgm, eqn::Vector, isNL::Bool)
-#    map(x-> addequ!(mp, x, isNL), values(eqn))
-#end
-
 
 """
      addovf!(emp, v, args, name, params)
@@ -165,6 +120,7 @@ Tag a variable as a supported OVF
 """
 function addovf!(emp::EMPmaster, v::JuMP.VariableRef, args::Vector{JuMP.VariableRef}, name::String, params::Dict)
     push!(emp.ovfs, OVF(v, args, name, params))
+    return
 end
 
 """
@@ -188,6 +144,18 @@ function solveEMP(emp::EMPmaster)
 
     # This is needed to get the NL part loaded, before emptree is called
     if emp.backend.nlp_data !== nothing
+        # We need to transfer the nlconstr from the MP to the JuMP container
+        if length(emp.mps) > 0 && !isnothing(emp.backend.nlp_data)
+          nlconstr = emp.backend.nlp_data.nlconstr
+          mp2NLidx = Vector{Int}()
+          start = length(emp.backend.nlp_data.nlconstr)
+          for mp in filter(mp -> !isnothing(mp.nlp_data), emp.mps)
+            len = length(mp.nlp_data.nlconstr)
+            append!(nlconstr, mp.nlp_data.nlconstr)
+            append!(mp.nlp_data.indices, collect(start:(start+len-1)))
+            start += len
+          end
+        end
         MOI.set(emp.backend, MOI.NLPBlock(), JuMP._create_nlp_block_data(emp.backend))
         empty!(emp.backend.nlp_data.nlconstr_duals)
     end
@@ -199,10 +167,14 @@ function solveEMP(emp::EMPmaster)
 
     # Deal with the OVF functions
     for ovf in emp.ovfs
-        ReSHOP.reshop_ovf(m.mdl, ovf)
+        ovf_def = ReSHOP.reshop_ovf(m.mdl, ovf)
+        ovf_formulation = get(emp.opts, "ovf_formulation", nothing)
+        if !isnothing(ovf_formulation)
+            ReSHOP.rhp_ovf_setreformulation(ovf_def, ovf_formulation)
+        end
     end
 
-    optimize!(emp.backend)
+    return optimize!(emp.backend)
 end
 
 #########################################################################################################

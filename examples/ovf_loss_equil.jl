@@ -16,95 +16,95 @@ else
   n_MP = 5
 end
 
-m = direct_model(ReSHOP.Optimizer(;ovf_formulation=ovf_formulation))
-
-fit_model = EMP.Model(m)
+fit_model = EMPmaster()
+m = get_JuMP_model(fit_model)
+#fit_model.opts["ovf_formulation"] = ovf_formulation
 
 mps = [MathPrgm(fit_model) for i=1:n_MP]
 
 EquilibriumProblem(fit_model, mps)
 
 # primary unknonwn
-@variableMP(mps[1], c1[j=1:1])
-@variableMP(mps[1], d1)
+@variable(mps[1], c1[j=1:1])
+@variable(mps[1], d1)
 
 # OVF variable
-@variableMP(mps[1], loss_var1)
+@variable(mps[1], loss_var1)
 
 # OVF arguments
-@variableMP(mps[1], fit1[i=1:N]);
+@variable(mps[1], fit1[i=1:N]);
 
-@constraintMP(mps[1], fiteqn1[i=1:N], (y[i] - sum(c1[j]*x[i, j] for j=1:M) - d1) / sigma_y[i] == fit1[i]);
+@constraint(mps[1], fiteqn1[i=1:N], (y[i] - sum(c1[j]*x[i, j] for j=1:M) - d1) / sigma_y[i] == fit1[i]);
 
 addovf!(fit_model, loss_var1, fit1, penalty_name, all_params[penalty_name])
 
-@objectiveMP(mps[1], Min, loss_var1)
+@objective(mps[1], Min, loss_var1)
 
 # primary unknonwn
-@variableMP(mps[2], c2[j=1:1])
-@variableMP(mps[2], d2)
+@variable(mps[2], c2[j=1:1])
+@variable(mps[2], d2)
 
 # OVF variable
-@variableMP(mps[2], loss_var2)
+@variable(mps[2], loss_var2)
 
 # OVF arguments
-@variableMP(mps[2], fit2[i=1:N]);
+@variable(mps[2], fit2[i=1:N]);
 
-@NLconstraintMP(mps[2], fiteqn2[i=1:N], log(exp((y[i] - sum(c2[j]*x[i, j] for j=1:M) - d2) / sigma_y[i])) == fit2[i]);
+@NLconstraint(mps[2], fiteqn2[i=1:N], log(exp((y[i] - sum(c2[j]*x[i, j] for j=1:M) - d2) / sigma_y[i])) == fit2[i]);
 
 addovf!(fit_model, loss_var2, fit2, penalty_name, all_params[penalty_name])
 
-@objectiveMP(mps[2], Min, loss_var2)
+@objective(mps[2], Min, loss_var2)
 
 if n_MP >= 3
 # primary unknonwn
-@variableMP(mps[3], c3[j=1:1])
-@variableMP(mps[3], d3)
+@variable(mps[3], c3[j=1:1])
+@variable(mps[3], d3)
 
 # OVF variable
-@variableMP(mps[3], loss_var3)
+@variable(mps[3], loss_var3)
 
 # OVF arguments
-@variableMP(mps[3], fit3[i=1:N]);
+@variable(mps[3], fit3[i=1:N]);
 
-@constraintMP(mps[3], fiteqn3[i=1:N], fit3[i] == (y[i] - sum(c3[j]*x[i, j] for j=1:M) - d3) / sigma_y[i]);
+@constraint(mps[3], fiteqn3[i=1:N], fit3[i] == (y[i] - sum(c3[j]*x[i, j] for j=1:M) - d3) / sigma_y[i]);
 
 addovf!(fit_model, loss_var3, fit3, penalty_name, all_params[penalty_name])
 
-@objectiveMP(mps[3], Min, loss_var3)
+@objective(mps[3], Min, loss_var3)
 
 elseif n_MP >= 4
   # primary unknonwn
-  @variableMP(mps[4], c4[j=1:1])
-  @variableMP(mps[4], d4)
+  @variable(mps[4], c4[j=1:1])
+  @variable(mps[4], d4)
 
   # OVF variable
-  @variableMP(mps[4], loss_var4)
+  @variable(mps[4], loss_var4)
 
   # OVF arguments
-  @variableMP(mps[4], fit4[i=1:N]);
+  @variable(mps[4], fit4[i=1:N]);
 
-  @NLconstraintMP(mps[4], fiteqn4[i=1:N], fit4[i] == log(exp((y[i] - sum(c4[j]*x[i, j] for j=1:M) - d4) / sigma_y[i])));
+  @NLconstraint(mps[4], fiteqn4[i=1:N], fit4[i] == log(exp((y[i] - sum(c4[j]*x[i, j] for j=1:M) - d4) / sigma_y[i])));
 
   addovf!(fit_model, loss_var4, fit4, penalty_name, all_params[penalty_name])
 
-  @objectiveMP(mps[4], Min, loss_var4)
+  @objective(mps[4], Min, loss_var4)
 
 # primary unknonwn
-  @variableMP(mps[5], c5[j=1:1])
-  @variableMP(mps[5], d5)
+  @variable(mps[5], c5[j=1:1])
+  @variable(mps[5], d5)
 
   # OVF variable
-  @variableMP(mps[5], loss_var5)
+  @variable(mps[5], loss_var5)
 
   # OVF arguments
-  @variableMP(mps[5], fit5[i=1:N]);
+  @variable(mps[5], fit5[i=1:N]);
 
-  @constraintMP(mps[5], fiteqn5[i=1:N], pi*(y[i] - sum(c5[j]*x[i, j] for j=1:M) - d5) / sigma_y[i] == pi*fit5[i]);
+  @constraint(mps[5], fiteqn5[i=1:N], pi*(y[i] - sum(c5[j]*x[i, j] for j=1:M) - d5) / sigma_y[i] == pi*fit5[i]);
 
   addovf!(fit_model, loss_var5, fit5, penalty_name, all_params[penalty_name])
 
-  @objectiveMP(mps[5], Min, loss_var5)
+  @objective(mps[5], Min, loss_var5)
 end
 
 

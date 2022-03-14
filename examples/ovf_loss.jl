@@ -12,10 +12,9 @@ N = length(y)
 @testset "loss test: penalty = $penalty_name; version = $version; ovf_formulation = $ovf_formulation" for penalty_name in penalty_names, version in versions, ovf_formulation in ovf_formulations
 
 
-m = direct_model(ReSHOP.Optimizer(;ovf_formulation=ovf_formulation))
-
-fit_model = EMP.Model(m)
-
+  fit_model = EMPmaster()
+  m = get_JuMP_model(fit_model)
+#  fit_model.opts["ovf_formulation"] = ovf_formulation
 
 if version == 1
     # primary unknonwn

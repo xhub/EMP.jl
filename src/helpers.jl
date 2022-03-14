@@ -22,7 +22,7 @@ function _getrealmoibackend(o::ReSHOP.Optimizer)
 end
 
 function _getrealmoibackend(o::MOI.Bridges.AbstractBridgeOptimizer)
-    return o.model
+  return _getrealmoibackend(o.model)
 end
 
 function _getrealmoibackend(o::MOI.Utilities.CachingOptimizer)
@@ -34,9 +34,16 @@ function _getrealmoibackend(o)
 end
 
 function getReSHOPModel(emp::EMPmaster)
-    jmodel = emp.model_ds
+    jmodel = emp.backend
 
     return _getrealmoibackend(jmodel.moi_backend)
+end
+
+function get_JuMP_model(emp::EMPmaster)
+  if !(emp.backend isa JuMP.Model)
+    error("EMP backend is of type $(typeof(emp.backend))")
+  end
+  return emp.backend
 end
 
 function _setvalues(m, x::Vector) error("_setvalues: unsupported type $(typeof(m))") end
