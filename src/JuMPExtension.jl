@@ -127,6 +127,7 @@ function JuMP.add_constraint(model::MathPrgm, c::JuMP.AbstractConstraint,
     add_ei(model, cref, c)
     cref
 end
+
 function JuMP.delete(model::MathPrgm, cref::JuMP.ConstraintRef)
     @assert JuMP.is_valid(model, cref)
     remove!(model.equs, cref.index)
@@ -156,10 +157,12 @@ end
 # Objective
 function JuMP.set_objective_function(model::MathPrgm, f::JuMP.AbstractJuMPScalar)
   model.objective_function = JuMP.moi_function(f)
+  return
 end
 
 function JuMP.set_objective_function(model::MathPrgm, f::Real)
   model.objective_function = JuMP.moi_function(JuMP.GenericAffExpr{Float64, JuMP.VariableRef}(f))
+  return
 end
 
 function JuMP.set_objective_function(model::MathPrgm, f::JuMP._NonlinearExprData)
@@ -175,6 +178,7 @@ function JuMP._init_NLP(model::MathPrgm)
     jump_model = model.emp.backend
     JuMP._init_NLP(jump_model)
     model.nlp_data = FakeNLP(Vector{Any}(), Int[])
+    return
 end
 
 JuMP.objective_sense(model::MathPrgm) = model.objectivesense
