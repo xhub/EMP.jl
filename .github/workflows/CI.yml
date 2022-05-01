@@ -35,6 +35,6 @@ jobs:
       - uses: codecov/codecov-action@v2
         with:
           files: lcov.info
-      - uses: julia-actions/julia-uploadcoveralls@v1
+      - uses: julia-actions/julia-uploadcodecov@latest
         env:
-          COVERALLS_TOKEN: ${{ secrets.COVERALLS_TOKEN }}
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
