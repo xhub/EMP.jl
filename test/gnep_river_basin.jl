@@ -1,6 +1,7 @@
 using Test
 
-@testset "gnep river basin" begin
+@testset "gnep river basin (solverstack = $stack)" for stack in solverstacks
+  ReSHOP.set_solverstack(stack)
 
   include(joinpath(dirname(dirname(@__FILE__)), "examples", "gnep_river_basin.jl"))
 

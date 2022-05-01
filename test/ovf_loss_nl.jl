@@ -35,10 +35,11 @@ penalty_names = keys(all_params)
 ovf_formulations = ["equilibrium", "dual"]
 
 
-@testset "ovf_loss_nl" begin
+@testset "ovf_loss_nl with solverstack $stack" for stack in solverstacks
+  ReSHOP.set_solverstack(stack)
 
 #for penalty_name in penalty_names, version in versions
 
-include(joinpath(dirname(dirname(@__FILE__)), "examples", "ovf_loss.jl"))
+  include(joinpath(dirname(dirname(@__FILE__)), "examples", "ovf_loss.jl"))
 
 end
