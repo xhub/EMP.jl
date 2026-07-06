@@ -1,10 +1,11 @@
-[![CI](https://github.com/xhub/EMP.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/xhub/EMP.jl/actions/workflows/CI.yml)
-[![codecov](https://codecov.io/gh/xhub/EMP.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/xhub/EMP.jl)
+**This repository has been archived due to the lack of time to update it to the latest version of JuMP/MOI**.
+
+**Feel free to contact the author if you'd like to revive it or whether you would like to use it.**
 
 
 # EMP
 
-**This package is not for public use as it needs to be updated to the latest version of JuMP/MOI**.
+
 
 This package enables the modeling of *Extending Mathematical Programming* (EMP) concepts within the JuliaOpt ecosystem.
 Broadly speaking, EMP enables the modeling of optimization problems with a structure that do not fit the classical minimization problem.
